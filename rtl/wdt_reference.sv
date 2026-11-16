@@ -2,8 +2,7 @@
 // The testbench supplies a one-entry bus bridge; no PEQ or TLM code is reused.
 `timescale 1ns/1ps
 module wdt_reference(
-    input logic clk, reset_n, pending,
-    input time ready_tick,
+    input logic clk, reset_n, pending, commit,
     input logic [1:0] command,
     input logic [63:0] address,
     input logic [31:0] write_data, length, width,
@@ -18,7 +17,6 @@ module wdt_reference(
     logic expired = 0, next_expired;
     logic reset_seen = 0, cancel_pending = 0;
     logic reload_now, valid_write;
-    logic commit;
     integer decoded_status;
     logic [31:0] decoded_read;
 
@@ -50,7 +48,6 @@ module wdt_reference(
     end
 
     always @(posedge clk) begin
-        commit = pending && ($time > ready_tick);
         next_control = control;
         next_reload = reload;
         next_expired = expired;

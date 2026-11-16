@@ -34,6 +34,7 @@ The original state was preserved in local commit `cecc95c`.
 - Synthetic timing, missing, duplicate, and reordered events fail comparison.
   The one-cycle negative control reports a 10 ns first divergence.
 - A fresh CMake configuration still rejects SystemC 2.3.3 without the override.
+- Local links in all 18 Markdown files resolve; `git diff --check` passes.
 - The documented 16-run sweep (four bus latencies, two periods, two generated
   seeds, four workers) passes all exact RTL gates. Paired trace profiling passes
   semantic equivalence; the noisy single wall-time ratio is not a performance claim.

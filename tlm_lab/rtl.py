@@ -22,7 +22,7 @@ def testbench(c):
             op.get("length", 4), op.get("streaming_width", 4), int(op.get("byte_enable", False))])) + ");")
     return r'''`timescale 1ns/1ps
 module tb;
-    reg clk = 0, reset_n = 0, pending = 0;
+    reg clk = 0, reset_n = 0, pending = 0, commit = 0;
     reg [1:0] command = 0;
     reg [63:0] address = 0;
     reg [31:0] write_data = 0, length = 4, width = 4;
@@ -61,8 +61,15 @@ module tb;
         $fdisplay(response_file, "transaction_id,tick,status,value");
     end
     initial begin
-        #FIRST clk = 1;
-        forever #(PERIOD/2) clk = ~clk;
+        #FIRST;
+        forever begin
+            // Simulation-only bus bridge decides eligibility before the core edge.
+            // The reference core contains no $time or transport scheduling logic.
+            commit = pending && ($time > ready_tick);
+            clk = 1;
+            #(PERIOD/2) clk = 0;
+            #(PERIOD/2);
+        end
     end
     initial begin
         RESET_SEQUENCE

@@ -6,6 +6,8 @@ stimulus, simulates with Icarus, samples after NBA updates, and exports reset,
 transaction, expiry, IRQ and reset-request observations at integer edges.
 Dependencies wait for actual RTL responses; C++ traces are never RTL stimulus.
 [rtl.py](../tlm_lab/rtl.py) provides the bridge and normalizer.
+The simulation-only bridge decides commit eligibility before each edge. The
+reference core itself contains no simulation-time queries or TLM scheduling.
 
 Run `python -m tlm_lab run configs/wdt_scenario.example.json --rtl`. Generated
 sources, compiled simulation, traces, responses, and first-mismatch reports stay
