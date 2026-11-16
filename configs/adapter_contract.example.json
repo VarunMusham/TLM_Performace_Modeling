@@ -1,7 +1,7 @@
 {
-  "schema_version": "draft-1",
-  "status": "illustrative_not_validated_by_runner",
-  "adapter_id": "hybrid_wdt_pilot",
+  "schema_version": "1",
+  "status": "implemented",
+  "adapter_id": "hybrid_wdt",
   "interfaces": [{"name": "regs", "kind": "tlm2_b_transport", "width_bits": 32, "outstanding_limit": 1}],
   "timing": {
     "style": "hybrid",
@@ -13,6 +13,6 @@
   },
   "capabilities": {"dmi": false, "debug_transport": false, "nonblocking_transport": false, "internal_probes": true},
   "events": ["submit", "peq_ready", "commit_read", "commit_write", "access_error", "reset_cancel", "reset", "expiry", "irq", "reset_request"],
-  "qualification": {"rtl_correlated": false, "accepted_kpi_thresholds": null}
+  "qualification": {"mode": "exact_ticks", "scope": "per-run scenario, source/binary hashes and clock definition", "production_ip": false}
 }
 

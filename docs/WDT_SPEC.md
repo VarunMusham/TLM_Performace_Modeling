@@ -110,6 +110,10 @@ tests should cover LOAD=1/max, different clock phases/latencies, live LOAD chang
 CTRL mask changes, W1C exactly at expiry, reset at expiry, and randomized sequences.
 The current directed tests are a starting set, not exhaustive verification.
 
+These additional cases are now exercised by `tests/test_platform.py`, including
+the independent RTL reference. Configurable experiments use `scenario.cpp`
+through the [CLI](CLI.md); the eight fixed pilot cases remain unchanged.
+
 ## Pilot trace format
 
 CSV fields are `tick,delta,sequence,event,transaction_id,address,value`. Resolution

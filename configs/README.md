@@ -1,12 +1,12 @@
-# Draft configuration examples
+# Runtime configuration examples
 
-These JSON files make the proposed runner/adapter contract reviewable. They are
-not runtime configuration for the fixed C++ pilot and have no production schema
-validator yet. Integer ticks are strings to preserve precision across future
-web/JSON consumers. Unresolved RTL references remain explicitly null.
+`wdt_scenario.example.json` is a runnable version-1 scenario.
+`adapter_contract.example.json` is the registered WDT contract and
+`sweep.example.json` is a 16-experiment generated-workload matrix.
+The strict validator is [config.py](../tlm_lab/config.py). It rejects unknown
+fields, invalid timing and unsupported capabilities. Tick strings preserve
+precision across JSON consumers. See [CLI](../docs/CLI.md).
 
-The minimal scenario covers setup and first expiry. The CTest `expiry` case
-additionally reads and clears status after that observation. A future runner
-must reject missing required parameters, unsupported adapter features, and
-unresolved correlation references when a correlation run is requested.
+The scenario covers setup, pre-decrement COUNT read, and first expiry. The legacy
+fixed CTest `expiry` case also reads and clears status afterward.
 

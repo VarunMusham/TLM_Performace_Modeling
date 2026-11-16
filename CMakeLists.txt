@@ -15,11 +15,16 @@ endif()
 
 add_executable(wdt_pilot examples/wdt/wdt.cpp examples/wdt/testbench.cpp)
 target_link_libraries(wdt_pilot PRIVATE SystemC::systemc)
+add_executable(wdt_scenario examples/wdt/wdt.cpp examples/wdt/scenario.cpp)
+target_link_libraries(wdt_scenario PRIVATE SystemC::systemc)
+target_compile_definitions(wdt_scenario PRIVATE SC_INCLUDE_DYNAMIC_PROCESSES)
 target_compile_definitions(wdt_pilot PRIVATE SC_INCLUDE_DYNAMIC_PROCESSES)
 if(MSVC)
     target_compile_options(wdt_pilot PRIVATE /W4)
+    target_compile_options(wdt_scenario PRIVATE /W4)
 else()
     target_compile_options(wdt_pilot PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(wdt_scenario PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 enable_testing()
@@ -30,4 +35,16 @@ foreach(scenario expiry kick_boundary disable_boundary reset_pending invalid ann
     add_test(NAME wdt_${scenario}_no_trace COMMAND wdt_pilot ${scenario} -)
     set_tests_properties(wdt_${scenario}_no_trace PROPERTIES TIMEOUT 10)
 endforeach()
+
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+    add_test(NAME platform_contracts COMMAND "${Python3_EXECUTABLE}" -m unittest discover -s tests -v)
+    set_tests_properties(platform_contracts PROPERTIES
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        ENVIRONMENT "TLM_LAB_EXECUTABLE=$<TARGET_FILE:wdt_scenario>"
+        TIMEOUT 120)
+    add_test(NAME pilot_trace_validation COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pilot_traces.py" "${CMAKE_CURRENT_BINARY_DIR}/traces")
+    set_tests_properties(pilot_trace_validation PROPERTIES DEPENDS "wdt_expiry;wdt_kick_boundary;wdt_disable_boundary;wdt_reset_pending;wdt_invalid;wdt_annotated_delay;wdt_read_counter;wdt_peq_on_edge")
+endif()
 

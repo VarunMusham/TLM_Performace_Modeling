@@ -2,6 +2,9 @@
 
 Implemented: one blocking register target, PEQ readiness delay, clocked counter,
 reset cancellation, IRQ/reset outputs, CSV trace, and eight directed cases.
+The configurable `wdt_scenario` consumes CLI-generated clocks, reset sequences,
+dependency workloads, annotations, drain deadlines and trace budgets. See
+[CLI](../../docs/CLI.md). Python/RTL tests add boundary cases and random holdouts.
 See [the specification](../../docs/WDT_SPEC.md) before changing timing behavior.
 
 ```powershell
@@ -19,6 +22,6 @@ Run one case manually after building:
 ```
 
 With a multi-configuration generator, the executable is under `build/Release/`
-and CTest needs `-C Release`. Results are model sanity checks until an independent
-RTL implementation has been compared. This IP is not a production WDT design.
+and CTest needs `-C Release`. Fixed pilot tests are sanity checks; request `--rtl`
+through the CLI for independent comparison. This is not a production WDT design.
 

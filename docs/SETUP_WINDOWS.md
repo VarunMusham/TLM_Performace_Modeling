@@ -1,11 +1,32 @@
 # Windows setup
 
-Target: SystemC 2.3.4, a compatible C++14 compiler/runtime, CMake, and optionally
-Python 3 for trace checks. Use the same compiler family, architecture, runtime,
+Target: SystemC 2.3.4, a compatible C++14 compiler/runtime, CMake, and Python 3.9+
+for the CLI and trace checks. Icarus `iverilog`/`vvp` enables RTL comparison and
+the full integration test suite. Use the same compiler family, architecture, runtime,
 and C++ standard for SystemC and the pilot. Do not link an MSVC SystemC library
 into a MinGW executable, or mix incompatible Debug/Release runtime libraries.
 
 ## Existing SystemC 2.3.4 installation
+
+The current workspace has a qualified installation at
+`.deps/systemc-2.3.4-install`, with the CLI build at `build-234`. See
+[CLI](CLI.md). For a fresh MSYS2 UCRT64 build, the following local setup was
+exercised successfully (the assembly preprocessor flag handles the source's
+conditional ELF-only GNU-stack directive on native Windows):
+
+```powershell
+git clone --depth 1 --branch 2.3.4 https://github.com/accellera-official/systemc.git .deps/systemc-2.3.4
+cmake -S .deps/systemc-2.3.4 -B .deps/systemc-2.3.4-build -G Ninja '-DCMAKE_BUILD_TYPE=Release' '-DCMAKE_CXX_STANDARD=14' '-DBUILD_SHARED_LIBS=OFF' '-DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON' '-DCMAKE_POLICY_VERSION_MINIMUM=3.5' '-DCMAKE_CXX_COMPILER=C:/msys64/ucrt64/bin/g++.exe' '-DCMAKE_ASM_FLAGS=-x assembler-with-cpp' '-DCMAKE_INSTALL_PREFIX=D:/TLM_Performance_Modeling/.deps/systemc-2.3.4-install'
+cmake --build .deps/systemc-2.3.4-build --parallel 4
+cmake --install .deps/systemc-2.3.4-build
+python -m tlm_lab build --systemc-prefix .deps/systemc-2.3.4-install --compiler C:/msys64/ucrt64/bin/g++.exe
+ctest --test-dir build-234 --output-on-failure
+```
+
+The checkout was commit `5fc1469339775b54b1fcc2020ac744a58be5b50e`;
+the source was not patched. Only use that assembly flag with GCC-compatible
+toolchains. The source's Pthreads option is unsupported on native Windows;
+leave it disabled. The older compatibility setup below is historical.
 
 From this workspace, set the prefix to your own installation containing
 `lib/cmake/SystemCLanguage`. The path below is illustrative:

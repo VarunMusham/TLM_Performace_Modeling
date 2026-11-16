@@ -1,4 +1,72 @@
-# Initialization validation
+# Current CLI validation
+
+Validated 2026-11-17 on Windows with MSYS2 UCRT64 GCC 16.1.0, C++14,
+CMake 4.1.1/Ninja, Python 3.13.5, Icarus 12.0 (development build), and actual
+**SystemC 2.3.4**, official tag commit
+`5fc1469339775b54b1fcc2020ac744a58be5b50e`. Source was not patched; the GCC
+assembly preprocessing flag is documented in [Windows setup](SETUP_WINDOWS.md).
+
+## Verified baseline before implementation
+
+The original repository had no commits and all 26 scaffold/pilot files were
+untracked. Existing build artifacts used SystemC 2.3.3. Before changing source,
+the build, all 16 CTests, and all eight trace checks were rerun successfully.
+The original state was preserved in local commit `cecc95c`.
+
+## Implemented checks
+
+- SystemC 2.3.4 builds both native executables without the compatibility override.
+- All **18 CTest entries pass**: the original 16 trace-on/off cases, the platform
+  suite, and the eight-trace checker integrated as a dependent CTest.
+- The platform suite has **20 passing unittest methods**, with parameterized
+  fixtures for configuration validation, metric windows/cohorts/censoring,
+  occupancy seeding, interval unions, nearest-rank quantiles, and conservation.
+- Independent RTL comparison covers the example, LOAD=1/max, live LOAD changes,
+  repeated enable, kick/disable/W1C at expiry, sticky masks, disabled kick,
+  reset at expiry, sampled-reset cancellation surviving release, invalid access
+  responses, zero latency, annotations, and varied clock periods/phases.
+- Three 50-operation holdout seeds (3, 41, 999) pass exact RTL comparison.
+- Byte-identical repeated native traces, verified binary replay, offline analysis,
+  regression gating, importer/comparator CLI paths, and artifact tamper detection
+  pass. Trace-on/off semantic event digests and response tables match.
+- Host timeout cleanup, simulated deadline, bounded trace failure, missing RTL
+  tools, and valid-run/failed-accuracy separation are tested.
+- Synthetic timing, missing, duplicate, and reordered events fail comparison.
+  The one-cycle negative control reports a 10 ns first divergence.
+- A fresh CMake configuration still rejects SystemC 2.3.3 without the override.
+- The documented 16-run sweep (four bus latencies, two periods, two generated
+  seeds, four workers) passes all exact RTL gates. Paired trace profiling passes
+  semantic equivalence; the noisy single wall-time ratio is not a performance claim.
+
+Reproduce with:
+
+```powershell
+python -m tlm_lab build --systemc-prefix .deps/systemc-2.3.4-install --compiler C:/msys64/ucrt64/bin/g++.exe
+ctest --test-dir build-234 --output-on-failure
+python -m tlm_lab run configs/wdt_scenario.example.json --rtl
+python -m tlm_lab sweep configs/wdt_scenario.example.json --matrix configs/sweep.example.json --jobs 4 --rtl
+python -m tlm_lab profile configs/wdt_scenario.example.json --rtl
+```
+
+Evidence is under ignored `runs/`, CTest traces under `build-234/traces`, and
+test logs under `build-234/Testing/Temporary/LastTest.log`. Temporary unittest
+run directories are cleaned after assertions. The final CLI guide describes
+retention, hash verification, status meanings, and reproducibility limitations.
+
+## Qualification limits
+
+This validates the CLI and original WDT contract for exercised configurations.
+It is not exhaustive/formal equivalence, production-IP qualification, a measured
+speedup, or a statistically established trace budget. Production MSVC/commercial
+simulators and real link-IP concurrency, queues, credits, retries, backpressure,
+multi-clock crossings and multi-IP topology remain unqualified. Those require
+actual model access and agreed per-KPI limits.
+
+## Historical initialization record
+
+The record below predates the CLI implementation and target-version validation.
+
+# Initialization validation (historical)
 
 Recorded 2026-11-17. This is validation of the scaffold and pilot, not a claim of
 production readiness or RTL equivalence.

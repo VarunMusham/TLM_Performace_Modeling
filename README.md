@@ -1,13 +1,22 @@
 # TLM Performance Lab
 
-A proposed performance-analysis platform for existing, RTL-oriented SystemC IPs,
+A CLI performance-analysis platform for RTL-oriented SystemC IP experiments,
 including hybrid models with PEQ-driven timing. Windows and SystemC **2.3.4** are
 the target environment. The first pilot is a small watchdog timer (WDT).
 
-**Status: architecture for review, with a small executable WDT pilot.** The general
-platform, RTL importers, correlation engine, sweeps, and graphical interface are
-planned; they are not implemented. The pilot is a new example IP, not a model of
-your production WDT. No RTL equivalence or simulation-speedup claim has been made.
+**Status: executable WDT CLI platform on SystemC 2.3.4.** Implemented: strict
+scenario validation, configurable hybrid WDT, immutable evidence, canonical
+events, metrics, HTML/CSV reports, independent Verilog correlation, seeded
+workloads, sweeps, replay, regression gates, and trace-on/off profiling.
+The WDT is an original example, not a production WDT. Qualification is per run;
+real link-IP integration and graphical authoring remain future work.
+
+```powershell
+python -m tlm_lab run configs/wdt_scenario.example.json --rtl
+python -m tlm_lab --help
+```
+
+See the [CLI guide](docs/CLI.md) for setup, commands, contracts, and limits.
 
 ## Review these first
 
@@ -28,13 +37,15 @@ Supporting contracts: [timing and observation](docs/TIMING.md),
 docs/                 Reviewable plan and engineering contracts
 examples/wdt/         Small hybrid SystemC WDT and self-checking testbench
 configs/              Illustrative future scenario and adapter contracts
-platform/             Planned runner, metrics, and reporting responsibilities
-adapters/             Integration template for existing proprietary models
-rtl/                  Planned reference model and trace-export boundary
+tlm_lab/              CLI, runner, validation, metrics, and correlation
+platform/             Platform entry-point documentation
+adapters/             Integration contract for additional proprietary models
+rtl/                  Independent Verilog WDT reference
+tests/                Analytical, CLI, and RTL holdout tests
 tools/                Local review utilities
 .deps/                Ignored, workspace-local third-party dependencies
 build/                Ignored build and pilot test traces
-runs/                 Ignored future experiment artifacts
+runs/                 Ignored immutable experiment artifacts and reports
 private/              Ignored external/proprietary integrations
 ```
 
@@ -43,6 +54,6 @@ readiness, and a clocked watchdog. It demonstrates that timing contracts and
 observation points matter more than assigning an entire IP an LT or AT label.
 
 Build and test instructions are in [Windows setup](docs/SETUP_WINDOWS.md).
-The JSON configuration files describe the intended platform API; the current
-pilot uses fixed parameters and CTest cases, and does not load these files.
+The CLI validates JSON scenarios and launches `wdt_scenario` through its native
+workload adapter. The legacy `wdt_pilot` retains eight fixed CTest scenarios.
 

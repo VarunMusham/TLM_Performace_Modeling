@@ -1,0 +1,5 @@
+{
+  "parameters": {"parameters.bus_latency_tick": [0, 5, 15, 20], "clock.period_tick": [10, 20]},
+  "seeds": [3, 41],
+  "workload_generator": {"count": 30}
+}

@@ -3,7 +3,7 @@
 
 namespace tlm_lab {
 
-trace_sink::trace_sink(const std::string& path) : enabled_(path != "-") {
+trace_sink::trace_sink(const std::string& path, std::uint64_t limit) : enabled_(path != "-"), limit_(limit) {
     if (!enabled_) return;
     stream_.open(path);
     if (!stream_) throw std::runtime_error("Cannot open trace: " + path);
@@ -12,9 +12,20 @@ trace_sink::trace_sink(const std::string& path) : enabled_(path != "-") {
 
 void trace_sink::emit(const char* event, std::uint64_t id,
                       std::uint64_t address, std::uint32_t value) {
+    ++sequence_;
+    // An allocation-free semantic digest also runs in trace-off mode.
+    auto mix = [&](std::uint64_t number) {
+        for (unsigned i = 0; i < 8; ++i) {
+            fingerprint_ ^= (number >> (8*i)) & 255u;
+            fingerprint_ *= 1099511628211ull;
+        }
+    };
+    for (const char* c = event; *c; ++c) { fingerprint_ ^= *c; fingerprint_ *= 1099511628211ull; }
+    mix(sc_core::sc_time_stamp().value()); mix(id); mix(address); mix(value);
     if (!enabled_) return;
+    if (limit_ && sequence_ > limit_) throw std::runtime_error("Trace event limit exceeded; evidence incomplete");
     stream_ << sc_core::sc_time_stamp().value() << ',' << sc_core::sc_delta_count()
-            << ',' << ++sequence_ << ',' << event << ',' << id << ',' << address
+            << ',' << sequence_ << ',' << event << ',' << id << ',' << address
             << ',' << value << '\n';
     if (!stream_) throw std::runtime_error("Trace write failed");
 }

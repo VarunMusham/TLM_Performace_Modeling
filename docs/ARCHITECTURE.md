@@ -1,6 +1,9 @@
 # Architecture
 
-All components below are proposed except the standalone WDT example.
+The WDT CLI path is implemented in `tlm_lab/` and `examples/wdt/scenario.cpp`.
+Native simulation, observation, offline metrics, evidence, independent RTL,
+comparison, and HTML/CSV reports are exercised. General external adapters,
+link-IP queue/credit probes, and multi-IP topology remain extensions.
 
 ```mermaid
 flowchart LR

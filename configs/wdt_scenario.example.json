@@ -1,19 +1,19 @@
 {
-  "schema_version": "draft-1",
-  "status": "illustrative_not_loaded_by_pilot",
+  "schema_version": "1",
   "name": "wdt_expiry",
-  "adapter": "hybrid_wdt_pilot",
+  "adapter": "hybrid_wdt",
   "systemc_target": "2.3.4",
-  "time_resolution": {"value": 1, "unit": "ns"},
   "clock": {"name": "wdt_clk", "period_tick": "10", "first_rising_tick": "10"},
   "parameters": {"bus_latency_tick": "15"},
-  "reset": {"active_low": true, "assert_tick": "0", "deassert_tick": "11"},
+  "reset": [{"tick": "0", "reset_n": false}, {"tick": "11", "reset_n": true}],
   "workload": [
     {"id": "load", "op": "write32", "offer_tick": "11", "address": "0x04", "value": 3},
-    {"id": "enable", "op": "write32", "after_completion_of": "load", "address": "0x00", "value": 7}
+    {"id": "enable", "op": "write32", "after_completion_of": "load", "address": "0x00", "value": 7},
+    {"id": "snapshot", "op": "read32", "after_completion_of": "enable", "offset_tick": "1", "address": "0x08", "expect_value": 2}
   ],
   "measurement": {"start_tick": "11", "end_tick": "81", "drain_deadline_tick": "100"},
-  "expectations": {"load_commit_tick": "30", "enable_commit_tick": "50", "expiry_tick": "80"},
-  "correlation": {"mode": "exact_cycles", "clock": "wdt_clk", "rtl_reference": null, "status": "uncorrelated"}
+  "trace": {"mode": "full", "max_events": 1000000},
+  "seed": 0,
+  "expectations": [{"event": "expiry", "ticks": ["80"]}, {"event": "irq", "ticks": ["80"], "values": [1]}]
 }
 

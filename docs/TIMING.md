@@ -44,9 +44,11 @@ These are proposed platform conventions, not additional SystemC standard rules.
 | payload_bytes, wire_bytes | Separate useful data and modeled transport overhead |
 | value, reason, attributes | Resource level, stall cause, or adapter-specific metadata |
 
-Fields that do not apply are absent, not fabricated. Schema validation and a
-semantic event validator are future platform work. The WDT CSV is deliberately a
-smaller pilot format, described in its specification.
+Fields that do not apply are absent, not fabricated. The implemented WDT
+normalizer and semantic validator are in `tlm_lab/events.py`; canonical tick,
+delta, sequence, epoch and cycle values are decimal strings. The raw WDT CSV
+retains the smaller pilot format described in its specification. Other adapters
+must provide protocol-specific normalization and validation.
 
 Stable transaction IDs must survive payload reuse. Use an adapter-owned sequence
 or a managed extension only where ownership is agreed. For retries, distinguish

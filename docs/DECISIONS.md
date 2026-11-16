@@ -1,5 +1,11 @@
 # Decisions and open questions
 
+Implementation update: the local qualified path uses SystemC 2.3.4 (official tag,
+commit `5fc1469339775b54b1fcc2020ac744a58be5b50e`), MSYS2 UCRT64 GCC 16.1.0,
+C++14, Ninja, Python 3.13.5 and Icarus 12.0. The runtime contract is version 1;
+see [CLI](CLI.md). Production toolchain and real-IP questions below remain open.
+The built-in WDT accuracy gate requires exact event ticks.
+
 ## Confirmed by the user
 
 | Item | Decision |
@@ -36,7 +42,6 @@
 7. Which RTL simulator/monitor export should the first importer support?
 8. Are register setup sequences and workload generators already available?
 
-These questions do not block review of the plan. Accuracy qualification remains
-pending until an RTL baseline and agreed thresholds exist. User flexibility on
-evidence format is not interpreted as acceptance of an arbitrary error tolerance.
+These questions do not block WDT CLI use. Its independent RTL baseline is
+implemented; real-IP qualification still requires actual models and agreed limits.
 

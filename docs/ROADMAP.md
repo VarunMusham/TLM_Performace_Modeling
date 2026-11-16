@@ -1,5 +1,18 @@
 # Delivery roadmap
 
+## Implementation status, 2026-11-17
+
+M0's pilot and the WDT path through M1/M2 are implemented on SystemC 2.3.4:
+strict scenarios, native feedback, manifests, canonical events, independent RTL,
+exact comparison, directed/holdout tests, and injected-error detection. The WDT
+portion of M4 includes metrics, seeded parallel sweeps, reports, replay, CLI
+regression gates, and paired profiling. See [CLI](CLI.md) and [validation](VALIDATION.md).
+
+The table below remains the broader product plan. M3/M5 require an actual link
+IP, integration access, reviewed mechanisms and thresholds. None is supplied.
+General adapters, concurrent queue/credit analysis, multi-IP topology, CI-provider
+wiring, and established runtime budgets remain outside WDT qualification.
+
 Implementation follows review of the platform and WDT contracts. Estimates are
 planning ranges for one developer familiar with the IPs, not commitments. Real
 adapter access, RTL monitor effort, and model fixes can dominate elapsed time.
@@ -18,7 +31,7 @@ platform as suitable for UALink/UCIe/PCIe performance studies. WDT validates
 timing discipline and the workflow but does not exercise link bandwidth,
 credits, reordering, retries, or multi-requester arbitration.
 
-## First implementation backlog
+## Original backlog (WDT items 1-8 now exercised)
 
 1. Finalize WDT register/timing policy and exact output sampling convention.
 2. Verify the pilot under the actual SystemC 2.3.4 compiler/runtime combination.

@@ -1,10 +1,10 @@
-# Planned platform components
+# CLI platform components
 
-Implementation reserved for the experiment runner, configuration validation,
-canonical events, metric calculations, RTL comparison, and reports. See
-[architecture](../docs/ARCHITECTURE.md). These components are not implemented yet.
+The implementation is [tlm_lab](../tlm_lab/), invoked as `python -m tlm_lab`.
+It includes strict validation, process isolation, manifests, canonical events,
+metrics, independent WDT RTL comparison, reports, seeded sweeps, replay,
+profiling, and regression. See [CLI](../docs/CLI.md) and
+[architecture](../docs/ARCHITECTURE.md).
 
-Proposed command flow: validate scenario -> build/resolve simulator -> run ->
-analyze -> correlate -> report. Each stage records its version and input hashes.
-Do not expose these as working commands until implemented and tested.
+General external-IP adapters and topology authoring remain future extensions.
 

@@ -1,11 +1,14 @@
 # RTL reference boundary
 
-No RTL implementation is included yet. The next step is an independent clocked
-WDT reference and monitor based on the reviewed [WDT specification](../docs/WDT_SPEC.md).
-Export transaction commits, expiry, IRQ, and reset request with named clock-domain
-cycles. A comparison must use equivalent bus timing and offered register traffic.
+`wdt_reference.sv` independently implements the [WDT specification](../docs/WDT_SPEC.md)
+with bus decode and clocked next-state equations. The CLI generates common-intent
+stimulus, simulates with Icarus, samples after NBA updates, and exports reset,
+transaction, expiry, IRQ and reset-request observations at integer edges.
+Dependencies wait for actual RTL responses; C++ traces are never RTL stimulus.
+[rtl.py](../tlm_lab/rtl.py) provides the bridge and normalizer.
 
-Store source-controlled monitor/reference code here when implemented. Keep
-generated waveforms and traces under ignored run directories. Passing the C++
-pilot tests alone is not evidence of RTL agreement.
+Run `python -m tlm_lab run configs/wdt_scenario.example.json --rtl`. Generated
+sources, compiled simulation, traces, responses, and first-mismatch reports stay
+in the run directory. Passing applies to that experiment, not exhaustive formal
+equivalence or production-IP qualification.
 

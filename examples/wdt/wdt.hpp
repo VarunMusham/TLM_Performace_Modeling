@@ -12,14 +12,18 @@ namespace tlm_lab {
 
 class trace_sink {
 public:
-    explicit trace_sink(const std::string& path);
+    explicit trace_sink(const std::string& path, std::uint64_t limit = 0);
     void emit(const char* event, std::uint64_t id = 0,
               std::uint64_t address = 0, std::uint32_t value = 0);
     void finish();
+    std::uint64_t count() const { return sequence_; }
+    std::uint64_t fingerprint() const { return fingerprint_; }
 private:
     std::ofstream stream_;
     bool enabled_;
     std::uint64_t sequence_ = 0;
+    std::uint64_t limit_ = 0;
+    std::uint64_t fingerprint_ = 14695981039346656037ull;
 };
 
 class wdt : public sc_core::sc_module {
