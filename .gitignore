@@ -1,0 +1,11 @@
+# Local dependencies, builds, generated traces, and private IP integration.
+/.deps/
+/build*/
+/runs/
+/private/
+__pycache__/
+*.pyc
+*.vcd
+.vs/
+.idea/
+
