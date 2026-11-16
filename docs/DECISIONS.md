@@ -1,47 +1,52 @@
-# Decisions and open questions
+# Decision and assumption register
 
-Implementation update: the local qualified path uses SystemC 2.3.4 (official tag,
-commit `5fc1469339775b54b1fcc2020ac744a58be5b50e`), MSYS2 UCRT64 GCC 16.1.0,
-C++14, Ninja, Python 3.13.5 and Icarus 12.0. The runtime contract is version 1;
-see [CLI](CLI.md). Production toolchain and real-IP questions below remain open.
-The built-in WDT accuracy gate requires exact event ticks.
+Updated 2026-11-17 for the developer handoff. User-confirmed choices are requirements;
+proposed technical choices remain reviewable with source evidence. Unknowns do not
+block generic infrastructure unless the dependency below says they do.
 
-## Confirmed by the user
+## Confirmed
 
-| Item | Decision |
-|---|---|
-| Primary user | TLM IP developer supporting RTL performance investigations |
-| Environment | Windows; OSCI/Accellera SystemC 2.3.4 |
-| Model style | Existing hybrid timing, including PEQs; preserve it |
-| First IP | Design a simple hybrid WDT for platform testing |
-| RTL evidence | Format flexible; user can work with any suitable evidence |
-| Dependencies | Download/install allowed; prefer isolated workspace dependencies |
+| ID | Decision and source | Consequence |
+|---|---|---|
+| D01 | User: first release analyzes/correlates existing IPs, then multi-IP | R1 real-link qualification precedes broad SoC scope |
+| D02 | User: Windows now, possible Linux port | Isolate OS providers; qualify Windows first |
+| D03 | User: CLI now, UI later | Implement application services and reports; defer GUI |
+| D04 | Existing user requirement: SystemC 2.3.4 and hybrid/PEQ timing | Preserve model timing; don't force pure LT/AT rewrite |
+| D05 | User targets UALink, UCIe, PCIe; WDT is base | Individual profiles and interaction-level qualification |
+| D06 | User: interfaces unknown; document how owner answers from code | [Intake worksheet](templates/IP_INTAKE.md) is mandatory integration input |
+| D07 | User requests local Git commits and final push to specified GitHub repository | Commit/review docs and push without rewriting remote history |
 
-## Proposed defaults, open to review
+## Proposed engineering defaults
 
-| Choice | Rationale / consequence |
-|---|---|
-| C++14 pilot, CMake, Python orchestration | Small portable native example; toolchain must match SystemC |
-| CLI and static HTML first | Establish trustworthy data before investing in a dashboard |
-| JSON scenario files | Inspectable, versionable, and usable without an initial YAML dependency |
-| One process per run | Clear kernel lifecycle, isolation, deterministic configuration |
-| Explicit hooks before generic socket interception | Preserve custom timing and expose internal bottlenecks |
-| Exact WDT event timing as first correlation target | Small enough to reason about and independently implement |
-| Fixed-period WDT clock, one blocking request at a time | Minimal pilot; concurrency is a separate link-IP milestone |
+| ID | Default | Rationale / reconsideration condition |
+|---|---|---|
+| A01 | Python orchestration, native C++14 SDK; compatible models share one SystemC kernel | Reuse current stack; support existing external simulator launchers |
+| A02 | Versioned JSON Schema plus semantic validators; v1 dispatch | Avoid ambiguous unsupported configuration; preserve baseline |
+| A03 | Scalar passive hooks before transparent general monitors | Payload/timing ownership must be demonstrably preserved |
+| A04 | Integer kernel ticks and resolution in fs; segmented domains | Support fast link models without floating-point identity |
+| A05 | JSONL chunks and SQLite indexing first | Inspectability/bounded analysis; profile before adding formats |
+| A06 | Local operation without mandatory services/cloud | Fits private IP workflow; enterprise deployment remains future scope |
+| A07 | Select first link by evidence readiness | No assumed priority among protocol families |
+| A08 | Exact WDT/synthetic directed checks; explicit per-KPI production policies | No blanket percentage tolerance |
+| A09 | Synthetic credit-link fixture before production concurrency claims | Generic independent validation without inventing a protocol model |
 
-## Questions remaining for implementation review
+## Open decisions and how to resolve them
 
-1. Which production Windows compiler/runtime and build system must adapters use
-   (MSVC, MinGW, or a simulator-provided environment)? What is the 2.3.4 path?
-2. Is the WDT register map and same-edge priority suitable, or should it mirror
-   an existing internal WDT more closely?
-3. Which real link IP comes after WDT, and which protocol version/configuration?
-4. Can adapters add internal observation hooks, or only wrap exposed interfaces?
-5. Which KPI thresholds and configuration envelope will RTL engineers accept?
-6. What are typical transaction counts, simulation durations, and trace budgets?
-7. Which RTL simulator/monitor export should the first importer support?
-8. Are register setup sequences and workload generators already available?
+| ID | Question/evidence needed | Owner role | Needed by / blocked work | Safe interim action |
+|---|---|---|---|---|
+| Q01 | Actual sockets/custom payloads/ownership and timing | TLM owner via intake B/C | G0, native adapter | SDK and synthetic fixture |
+| Q02 | Protocol documents/revisions, optional mechanisms and boundary | Model owner via intake A/D | Profile schema and qualification | No family-specific numerical defaults |
+| Q03 | Permission for hooks and observable internals | Model owner via resource inventory | Resource KPI claims | Boundary-only metrics where defined |
+| Q04 | RTL top/simulator, workload control, raw monitors/identity | RTL owner via intake E | G3 accuracy pass | Uncorrelated TLM experiments |
+| Q05 | Production compiler/runtime/SystemC installation and licenses | Integration owner via build evidence | Clean-host native integration | Retain tested MinGW baseline; external launch design |
+| Q06 | KPI envelope, numeric tolerances and required precision | Performance+RTL owners | Qualification policy before tuning | Exact analytical fixtures only |
+| Q07 | Reference host, trace volumes and capacity budgets | Platform/performance owners | AT17 and release capacity statement | Proposed 10M events/2 GiB and 5% counters-only targets |
+| Q08 | First real profile and model availability | Project owner after intake | P3 sequencing | P1/P2 proceed independently |
+| Q09 | Team size and delivery date | Project owner | Calendar commitment | Person-effort ranges only |
+| Q10 | Private data export/redistribution and internal CI environment | Repository/IP owner | Packaging/export and private qualification CI | No mandatory upload; record local evidence |
+| Q11 | Required bridges/topologies and model compatibility | System/TLM owner | R2 scope | Qualify a shared-resource synthetic topology |
+| Q12 | UI/power/software-workload priority | User/product owner | R4 budgeting | Preserve extension seams; no UI implementation now |
 
-These questions do not block WDT CLI use. Its independent RTL baseline is
-implemented; real-IP qualification still requires actual models and agreed limits.
-
+Document accepted changes with [ADR template](templates/ADR.md), source evidence,
+affected schemas/tickets/tests and migration. A reviewer may narrow a qualification
+envelope, but cannot turn missing evidence into a pass.

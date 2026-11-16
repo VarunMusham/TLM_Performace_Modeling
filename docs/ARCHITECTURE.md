@@ -1,5 +1,99 @@
 # Architecture
 
+## Proposed production architecture
+
+The sections below distinguish the current WDT path from the proposed generic
+platform. Use [requirements](PRODUCT_REQUIREMENTS.md) for scope and
+[data contracts](DATA_CONTRACTS.md) for v2 semantics. The existing code is retained
+and gradually moved behind adapter interfaces; v1 behavior remains a regression.
+
+```mermaid
+flowchart TB
+  CLI[CLI commands] --> API[Application services]
+  FUT[Later UI] -.-> API
+  API --> REG[Adapter and profile registry]
+  API --> RES[Resolve and validate experiment]
+  RES --> BUILD[Build manifest and dependency lock]
+  BUILD --> RUN[Job lifecycle and artifact store]
+  RUN --> NAT[Native SystemC process]
+  RUN --> EXT[External simulator process]
+  NAT --> OBS[Raw events and counters]
+  EXT --> OBS
+  OBS --> NORM[Adapter normalizers and semantic checks]
+  NORM --> IDX[Canonical streams and indexes]
+  IDX --> MET[Metric reducers]
+  IDX --> CMP[Correlation and qualification]
+  MET --> OUT[CLI JSON CSV HTML]
+  CMP --> OUT
+```
+
+### Proposed source layout and ownership
+
+| Module/path to introduce | Responsibility and interface | Primary ticket |
+|---|---|---|
+| `tlm_lab/core/contracts`, `schemas/` | Version-dispatched validation and typed records, no model imports | B02 |
+| `tlm_lab/core/registry.py` | Trusted package/profile discovery and capabilities | B03 |
+| `tlm_lab/core/experiment.py` | Resolve defaults, references, units, prerequisites; immutable resolved inputs | B02/B05 |
+| `tlm_lab/execution/` | Build/launch providers, process trees, job journal, cancellation | B07 |
+| `tlm_lab/storage/` | Artifacts, hashes, chunks/indexes and analysis revisions | B04/B07 |
+| `tlm_lab/analysis/` | Streaming reducers, metric prerequisites, confidence and comparison policies | B06/B08 |
+| `tlm_lab/adapters/wdt/` | Move WDT config/normalization/RTL/metrics from current modules | B03 |
+| `native/include/tlm_lab/`, `native/src/` | C++14 workload/observer/identity SDK; shared kernel integration | B03-B05 |
+| `tlm_lab/adapters/<profile>/` | Model-specific configuration, workloads, launch, events and qualification | B09/B12 |
+| `tests/unit`, `contract`, `integration`, `qualification`, `capacity` | Independent suite layers | B01 onward |
+| `tlm_lab/application/`, `tlm_lab/cli.py` | Use cases and presentation; reusable by future UI | B10/B11 |
+
+Paths are target design, not current directories. Avoid a single giant refactor:
+introduce interfaces, wrap WDT, migrate one concern at a time, then delete obsolete
+code only after legacy compatibility evidence. Core modules cannot depend on
+WDT register constants, family names, protocol phases or four-byte assumptions.
+
+### Simulation composition boundary
+
+A native experiment constructs source drivers, existing IP adapters, explicit
+bridges and sinks in one compatible SystemC kernel. All closed-loop feedback is
+inside that process. Python controls jobs and offline analysis. Two IPs compiled
+against incompatible ABIs cannot be directly bound; rebuild compatibly or keep
+them as independent experiments until a separately reviewed co-simulation
+transport exists. Parallel sweep processes do not make a distributed kernel.
+
+Each bridge has a functional mapping, queue/capacity, delay owner, ordering rule,
+clock-crossing policy and qualification record. Graph connections do not imply
+that UALink, UCIe and PCIe can bind directly. Protocol-compatible ports can bind;
+otherwise reject the topology unless an explicit adapter/bridge is supplied.
+Named clock domains, physical link directions and accounting layers are preserved.
+
+### Application and execution lifecycle
+
+Resolve -> validate -> prepare -> build/verify binary -> launch -> drain/terminate
+-> ingest -> validate evidence -> analyze -> correlate -> finalize -> report.
+Every stage has a recorded outcome; failed preparation/build must also retain a
+diagnostic record. Dry-run produces resolved inputs/commands without execution.
+Job cancellation is idempotent and terminates descendants. Resuming a sweep
+creates new run attempts; it never appends new simulation to an old kernel trace.
+
+Use content hashes for reuse only when binary/dependencies, inputs, adapter,
+normalizer and toolchain policy match. Hardware runtime benchmarking disables
+cached execution. Do not cache an accuracy pass outside its qualification envelope.
+
+### Failure and validity model
+
+Track execution (`success`, `failed`, `cancelled`, `timeout`, `interrupted`),
+evidence (`complete`, `partial`, `invalid`) and qualification (`uncorrelated`,
+`pass`, `fail`, `inconclusive`) separately. Diagnostics may inspect invalid runs,
+but incomplete required evidence cannot produce a trusted passing KPI gate.
+Missing optional probes make dependent metrics unavailable. A timing discrepancy
+with complete comparable evidence is an accuracy failure, not an infrastructure
+error. Each result records toolchain compatibility separately from evidence.
+
+### Future expansion seams
+
+Keep metrics and application services independent of HTML and CLI parsing.
+R3 adds constrained design-space exploration and catalog components above the
+same adapters. R4 may add a local UI, calibrated power-state models and task
+mapping. No cloud/database service is required for R1. OS process and path logic
+lives behind providers so Linux qualification does not require rewriting analyses.
+
 The WDT CLI path is implemented in `tlm_lab/` and `examples/wdt/scenario.cpp`.
 Native simulation, observation, offline metrics, evidence, independent RTL,
 comparison, and HTML/CSV reports are exercised. General external adapters,

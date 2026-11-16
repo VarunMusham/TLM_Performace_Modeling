@@ -1,0 +1,32 @@
+{
+  "schema_version": "2.0",
+  "policy_id": "synthetic_exact_v1",
+  "profile": "credit_link_fixture:0.1",
+  "scope": "synthetic_fixture_only",
+  "equivalence": {
+    "require_same_workload_intent": true,
+    "require_same_feedback_policy": true,
+    "time_alignment": "declared_shared_reset_marker",
+    "require_complete_capture": true
+  },
+  "gates": [
+    {
+      "id": "logical_accounting",
+      "mode": "exact",
+      "events": ["request.admitted", "operation.completed", "operation.failed", "operation.cancelled"],
+      "match_by": ["source_epoch", "logical_id", "attempt_id", "event"],
+      "ordering": "declared_causal_domains",
+      "time_bound_tick": "0",
+      "required": true
+    },
+    {
+      "id": "delivered_bytes",
+      "mode": "aggregate",
+      "metric": "useful_throughput",
+      "absolute_limit": "0",
+      "relative_limit": "0",
+      "required": true
+    }
+  ],
+  "missing_required_gate": "inconclusive"
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "2.0",
+  "name": "synthetic_credit_contention",
+  "time": {"resolution_fs": "1000"},
+  "models": [
+    {"id": "link0", "adapter": "credit_link_fixture", "version": "0.1", "model_kind": "synthetic",
+     "parameters": {"queue_depth": 8, "credits": 4, "service_tick": "10000", "credit_return_tick": "30000"}}
+  ],
+  "clocks": [{"id": "service_clk", "segments": [{"epoch": "0", "first_edge_tick": "10000", "period_tick": "10000", "edge": "rising"}]}],
+  "topology": {"bindings": [{"port": "link0.clk", "clock": "service_clk"}], "connections": [], "address_map": []},
+  "reset": [{"domain": "link0", "assert_tick": "0", "deassert_tick": "11000"}],
+  "workload": {
+    "schema_version": "2.0", "mode": "closed_loop", "seed": "41",
+    "generator": {"id": "two_source_fixed_size", "version": "1", "flows": [
+      {"id": "a", "endpoint": "link0.ingress_a", "payload_bytes": 64, "outstanding_limit": 8},
+      {"id": "b", "endpoint": "link0.ingress_b", "payload_bytes": 64, "outstanding_limit": 8}
+    ], "source_queue_limit": 16, "pending_at_stop": "withdraw_unadmitted"}
+  },
+  "measurement": {"start_tick": "100000", "end_tick": "1000000", "drain_deadline_tick": "1200000"},
+  "capture": {"mode": "full", "buffer_bytes": 1048576, "overflow": "fail"},
+  "metrics": ["operation_latency", "useful_throughput", "queue_occupancy", "credit_stall_fraction", "flow_fairness"],
+  "qualification": {"policy_id": "synthetic_exact_v1", "reference_kind": "independent_fixture"}
+}

@@ -18,6 +18,12 @@ python -m tlm_lab --help
 
 See the [CLI guide](docs/CLI.md) for setup, commands, contracts, and limits.
 
+For continued platform development, start with the
+[developer handoff](docs/README.md). It includes requirements, implementation
+audit, IP code-inspection worksheet, adapter/data/workload contracts, protocol
+profiles, release gates, acceptance tests and an implementation backlog.
+Future designs are explicitly distinguished from current WDT capabilities.
+
 ## Review these first
 
 1. [Platform plan](docs/PLAN.md): scope, intended workflow, and success criteria.
@@ -36,7 +42,7 @@ Supporting contracts: [timing and observation](docs/TIMING.md),
 ```text
 docs/                 Reviewable plan and engineering contracts
 examples/wdt/         Small hybrid SystemC WDT and self-checking testbench
-configs/              Illustrative future scenario and adapter contracts
+configs/              Runnable WDT scenario, adapter contract and sweep examples
 tlm_lab/              CLI, runner, validation, metrics, and correlation
 platform/             Platform entry-point documentation
 adapters/             Integration contract for additional proprietary models

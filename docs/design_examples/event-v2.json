@@ -1,0 +1,22 @@
+{
+  "schema_version": "2.0",
+  "run_id": "synthetic-example",
+  "stream_id": "link0-driver",
+  "source": "link0",
+  "scope": "link0.ingress_a",
+  "event": "request.admitted",
+  "observed_tick": "12000",
+  "effective_tick": "12000",
+  "annotation_tick": "0",
+  "sequence": "3",
+  "delta": "7",
+  "logical_id": "a:0:17",
+  "attempt_id": "0",
+  "flow_id": "a",
+  "source_epoch": "0",
+  "component_id": "link0",
+  "port_id": "ingress_a",
+  "order_domain": "flow:a",
+  "requested_bytes": "64",
+  "attributes": {}
+}
