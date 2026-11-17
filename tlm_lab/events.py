@@ -2,7 +2,8 @@
 import csv
 import json
 from pathlib import Path
-from .config import require, address
+from .config import require, address, fields, integer, MAX_TICK
+from .storage import exclusive_text, parse_json
 
 TERMINAL = {"commit_read", "commit_write", "access_error", "reset_cancel"}
 KINDS = TERMINAL | {"submit", "peq_ready", "reset", "expiry", "irq", "reset_request"}
@@ -49,25 +50,48 @@ def normalize(rows, c, run_id, source="tlm"):
 
 
 def write_jsonl(path, events):
-    with Path(path).open("x", encoding="utf-8", newline="\n") as f:
+    with exclusive_text(path) as f:
         for event in events:
-            f.write(json.dumps(event, sort_keys=True) + "\n")
+            f.write(json.dumps(event, sort_keys=True, allow_nan=False) + "\n")
 
 
 def read_jsonl(path):
-    events = [json.loads(line) for line in Path(path).read_text(encoding="utf-8").splitlines()]
+    events = [parse_json(line) for line in Path(path).read_text(encoding="utf-8").splitlines()]
     require(bool(events), "Empty canonical events")
     previous = (-1, -1)
     for i, e in enumerate(events, 1):
-        require(e.get("schema_version") == "1" and e.get("event") in KINDS, "Unsupported canonical event")
-        require(int(e["sequence"]) == i, "Canonical sequence loss")
-        tick, delta = int(e["observed_tick"]), int(e["delta"])
+        required = {"schema_version", "run_id", "source", "event", "scope", "observed_tick",
+                    "effective_tick", "delay_tick", "delta", "sequence", "value", "attributes"}
+        fields(e, required | {"transaction_id", "payload_bytes", "clock_id", "epoch", "cycle"}, required)
+        require(e["schema_version"] == "1" and isinstance(e["event"], str) and e["event"] in KINDS,
+                "Unsupported canonical event")
+        require(all(isinstance(e[k], str) and e[k] for k in ("run_id", "source")), "Missing event provenance")
+        def scalar(value, name, maximum=MAX_TICK):
+            require(isinstance(value, str), f"{name}: canonical integers must be decimal strings")
+            number = integer(value, name, 0, maximum)
+            require(str(number) == value, f"{name}: non-canonical decimal string")
+            return number
+        require(scalar(e["sequence"], "sequence") == i, "Canonical sequence loss")
+        tick, delta = scalar(e["observed_tick"], "observed_tick"), scalar(e["delta"], "delta", 2**64-1)
         require((tick, delta) >= previous and tick >= 0 and delta >= 0, "Canonical order")
         require(e.get("effective_tick") == e["observed_tick"] and e.get("delay_tick") == "0", "WDT effective time")
         require(e.get("scope") == "wdt" and isinstance(e.get("attributes"), dict), "Missing WDT event scope/attributes")
-        require(int(e["value"]) >= 0 and int(e["attributes"]["address"]) >= 0, "Invalid canonical scalar")
-        if "transaction_id" in e:
-            require(isinstance(e["transaction_id"], str) and bool(e["transaction_id"]), "Invalid transaction ID")
+        fields(e["attributes"], {"address"}, {"address"})
+        scalar(e["value"], "value", 2**32-1)
+        scalar(e["attributes"]["address"], "address", 2**64-1)
+        if e["event"] in TERMINAL | {"submit", "peq_ready"}:
+            require(isinstance(e.get("transaction_id"), str) and bool(e["transaction_id"]), "Invalid transaction ID")
+            require(type(e.get("payload_bytes")) is int and e["payload_bytes"] == 4, "Invalid register payload size")
+        else:
+            require("transaction_id" not in e and "payload_bytes" not in e, "Unexpected transaction identity")
+        clock_fields = {"clock_id", "epoch", "cycle"}
+        require(not (clock_fields & e.keys()) or clock_fields <= e.keys(), "Incomplete clock identity")
+        if "clock_id" in e:
+            require(isinstance(e["clock_id"], str) and bool(e["clock_id"]), "Invalid clock ID")
+            scalar(e["epoch"], "epoch")
+            scalar(e["cycle"], "cycle")
+        if e["event"] not in {"submit", "peq_ready"}:
+            require(clock_fields <= e.keys(), "Missing architectural clock identity")
         previous = tick, delta
     return events
 
@@ -86,6 +110,9 @@ def validate_lifecycles(events, c, check_timing=True):
         rows = groups[op["id"]]
         require(len(rows) == 3 and rows[0]["event"] == "submit" and rows[1]["event"] == "peq_ready"
                 and rows[2]["event"] in TERMINAL, f"Invalid lifecycle: {op['id']}")
+        if rows[2]["event"] in {"commit_read", "commit_write"}:
+            expected_kind = {"read32": "commit_read", "write32": "commit_write"}.get(op["op"])
+            require(rows[2]["event"] == expected_kind, f"Completion operation mismatch: {op['id']}")
         submit, ready, commit = map(lambda e: int(e["observed_tick"]), rows)
         expected_submit = (previous + int(op.get("offset_tick", 0)) if "after_completion_of" in op
                            else int(op["offer_tick"]))
@@ -102,10 +129,13 @@ def validate_lifecycles(events, c, check_timing=True):
         if e["event"] not in {"submit", "peq_ready"}:
             tick = int(e["observed_tick"])
             require(tick >= first and (tick-first) % period == 0, "Non-edge architectural event")
+            require(e.get("clock_id") == c["clock"]["name"] and e.get("epoch") == "0"
+                    and e.get("cycle") == str((tick-first)//period), "Clock identity/cycle mismatch")
     return groups
 
 
 def compare_events(left, right, tolerance=0):
+    tolerance = integer(tolerance, "tolerance")
     # Transaction identity and per-kind occurrence match independent observations.
     # Architectural order is checked separately within each timestamp batch;
     # delta/observation sequence are simulator-local, not cross-model keys.
@@ -120,7 +150,7 @@ def compare_events(left, right, tolerance=0):
     a, b = keyed(left), keyed(right)
     differences = []
     maximum = 0
-    for key in sorted(a.keys() | b.keys(), key=lambda k: int((a.get(k) or b[k])["observed_tick"])):
+    for key in sorted(a.keys() | b.keys(), key=lambda k: (int((a.get(k) or b[k])["observed_tick"]), k)):
         x, y = a.get(key), b.get(key)
         reason = None
         if x is None or y is None:

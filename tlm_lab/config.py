@@ -1,7 +1,7 @@
 """Strict version-1 WDT adapter contract; integer ticks are 1 ns."""
-import json
 import re
 from pathlib import Path
+from .storage import load_json
 
 MAX_TICK = 2**63 - 2
 
@@ -25,16 +25,8 @@ def integer(value, name, low=0, high=MAX_TICK):
     return number
 
 
-def unique_object(pairs):
-    result = {}
-    for key, value in pairs:
-        require(key not in result, f"Duplicate JSON key: {key}")
-        result[key] = value
-    return result
-
-
 def load(path):
-    return validate(json.loads(Path(path).read_text(encoding="utf-8"), object_pairs_hook=unique_object))
+    return validate(load_json(path))
 
 
 def validate(c):
@@ -71,7 +63,7 @@ def validate(c):
             "Initial reset must remain asserted through the first edge, then release")
     trace = c.get("trace", {"mode": "full", "max_events": 1000000})
     fields(trace, {"mode", "max_events"}, {"mode"})
-    require(trace["mode"] in {"full", "off"}, "Trace mode must be full or off")
+    require(trace["mode"] in ("full", "off"), "Trace mode must be full or off")
     integer(trace.get("max_events", 1000000), "max_events", 1)
     integer(c.get("seed", 0), "seed", 0, 2**32-1)
     require(isinstance(c["workload"], list) and bool(c["workload"]), "Empty workload")
@@ -84,7 +76,7 @@ def validate(c):
                {"id", "op", "address"})
         require(isinstance(op["id"], str) and re.fullmatch(r"[A-Za-z0-9_-]{1,80}", op["id"])
                 and op["id"] not in ids, "Invalid or duplicate workload id")
-        require(op["op"] in {"read32", "write32", "ignore"}, "Unsupported operation")
+        require(op["op"] in ("read32", "write32", "ignore"), "Unsupported operation")
         require(("offer_tick" in op) != ("after_completion_of" in op), "Choose absolute offer or dependency")
         if "offer_tick" in op:
             require("offset_tick" not in op, "offset requires dependency")
@@ -98,6 +90,7 @@ def validate(c):
         ready = offered + latency + integer(op.get("delay_tick", 0), "annotation")
         require(ready <= MAX_TICK, "Ready timestamp overflow")
         completion = first if ready < first else first + ((ready-first)//period + 1)*period
+        require(completion <= MAX_TICK, "Completion timestamp overflow")
         address(op["address"])
         integer(op.get("value", 0), "value", 0, 2**32-1)
         integer(op.get("length", 4), "length", 0, 4)
@@ -112,7 +105,7 @@ def validate(c):
     require(isinstance(c.get("expectations", []), list), "expectations must be a list")
     for e in c.get("expectations", []):
         fields(e, {"event", "ticks", "values"}, {"event", "ticks"})
-        require(e["event"] in {"expiry", "irq", "reset_request", "reset"}, "Invalid expected event")
+        require(e["event"] in ("expiry", "irq", "reset_request", "reset"), "Invalid expected event")
         require(isinstance(e["ticks"], list), "Expected ticks list")
         for tick in e["ticks"]:
             integer(tick, "expected tick", 0, drain)

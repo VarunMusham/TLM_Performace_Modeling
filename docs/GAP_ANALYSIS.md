@@ -45,6 +45,14 @@ The current executable path is WDT-specific despite reusable orchestration ideas
 These are observed limitations and required engineering work, not assertions of
 unreproduced functional failures. Existing WDT validation remains useful.
 
+Update for CLI 1.0.1 (2026-11-18): WDT JSON/JSONL outputs now publish atomically
+without overwriting evidence; attempts are checkpointed before preparation, and
+ordinary preparation/launch errors and single-run interruptions retain final
+manifests when storage permits. New fault injection tests cover these paths.
+Required hash coverage, canonical scalar validation, response timing and replay
+response equivalence are checked. Item 6 remains open for host crashes, persistent
+storage failure and the broader job lifecycle; other roadmap gaps remain open.
+
 ## Migration rather than replacement
 
 Freeze representative v1 scenarios/raw/canonical outputs as golden fixtures.

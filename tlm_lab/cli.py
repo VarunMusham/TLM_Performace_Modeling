@@ -3,14 +3,17 @@ from concurrent.futures import ThreadPoolExecutor
 import copy
 import itertools
 import json
+import math
 from pathlib import Path
 import random
+import subprocess
 import sys
 import uuid
 from .config import load, validate, require, fields, integer
 from .events import read_jsonl, read_pilot, normalize, validate_lifecycles, write_jsonl, compare_events
 from .metrics import analyze
 from .runner import run, dump, verify_run, ROOT, process
+from .storage import load_json
 
 
 def succeeded(m):
@@ -28,6 +31,8 @@ def execute(args, c=None):
 
 
 def generated(seed, count=30, template=None):
+    seed = integer(seed, "seed", 0, 2**32-1)
+    count = integer(count, "count", 1, 100000)
     rng = random.Random(seed)
     c = copy.deepcopy(template) if template else load(ROOT/"configs"/"wdt_scenario.example.json")
     c["name"], c["seed"] = f"wdt_seed_{seed}", seed
@@ -45,14 +50,14 @@ def generated(seed, count=30, template=None):
             op["offer_tick"] = int(c["reset"][1]["tick"])
         operations.append(op)
     c["workload"] = operations
-    budget = count*(int(c["parameters"]["bus_latency_tick"])+int(c["clock"]["period_tick"])+50)+100
+    budget = int(c["reset"][1]["tick"]) + count*(int(c["parameters"]["bus_latency_tick"])+int(c["clock"]["period_tick"])+50)+100
     c["measurement"] = {"start_tick": c["reset"][1]["tick"], "end_tick": str(budget), "drain_deadline_tick": str(budget+100)}
     return validate(c)
 
 
 def batch(args):
     base = load(args.scenario)
-    spec = json.loads(Path(args.matrix).read_text(encoding="utf-8"))
+    spec = load_json(args.matrix)
     fields(spec, {"parameters", "seeds", "workload_generator"}, {"parameters"})
     generator = spec.get("workload_generator")
     if generator is not None:
@@ -77,7 +82,8 @@ def batch(args):
         c["seed"] = combination[-1]
         if generator:
             c = generated(c["seed"], count, c)
-        c["name"] += f"_s{index}"
+        suffix = f"_s{index}"
+        c["name"] = c["name"][:80-len(suffix)] + suffix
         configs.append(validate(c))
     directory = Path(args.output).resolve()/f"sweep-{uuid.uuid4().hex[:12]}"
     directory.mkdir(parents=True, exist_ok=False)
@@ -161,11 +167,13 @@ def main(argv=None):
                 command.append("-DCMAKE_CXX_COMPILER=" + args.compiler)
             command.append("-DTLM_LAB_ALLOW_UNQUALIFIED_SYSTEMC=" + ("ON" if args.allow_unqualified_systemc else "OFF"))
             records = []
-            for stem, cmd in [("configure", command), ("build", ["cmake", "--build", directory, "--parallel", "4"])]:
-                result = process(cmd, logdir, stem, 120)
-                records.append(result)
-                require(result["exit_code"] == 0 and not result["timed_out"], f"{stem} failed; see {logdir}")
-            dump(logdir/"build.json", records)
+            try:
+                for stem, cmd in [("configure", command), ("build", ["cmake", "--build", directory, "--parallel", "4"])]:
+                    result = process(cmd, logdir, stem, 120, records)
+                    require(result["exit_code"] == 0 and not result["timed_out"] and not result.get("error"),
+                            f"{stem} failed; see {logdir}")
+            finally:
+                dump(logdir/"build.json", records)
             print(directory)
         elif args.command == "run":
             d, m = execute(args)
@@ -188,10 +196,12 @@ def main(argv=None):
             off.pop("expectations", None)
             d2, m2 = run(off, args.executable, profile_dir, args.timeout, False, args.allow_unqualified_systemc)
             equal = (succeeded(m1) and succeeded(m2) and m1["native"]["event_digest"] == m2["native"]["event_digest"]
+                     and m1["native"]["event_count"] == m2["native"]["event_count"]
                      and (d1/"responses.csv").read_bytes() == (d2/"responses.csv").read_bytes())
             result = {"trace_on": str(d1), "trace_off": str(d2), "semantic_equivalence": equal,
-                      "method": "native semantic event digest plus byte-identical response table",
-                      "wall_ratio_on_over_off": m1["processes"][0]["wall_seconds"]/m2["processes"][0]["wall_seconds"],
+                      "method": "native semantic event count/digest plus byte-identical response table",
+                      "wall_ratio_on_over_off": (m1["processes"][0]["wall_seconds"]/m2["processes"][0]["wall_seconds"]
+                                                 if equal else None),
                       "runtime_scope": "single paired host measurement; no TLM/RTL speedup claim"}
             dump(profile_dir/"profile.json", result)
             print(json.dumps(result, indent=2))
@@ -200,14 +210,17 @@ def main(argv=None):
             old_dir = Path(args.run_dir).resolve()
             old = verify_run(old_dir)
             require(old["validity"] == "valid", "Cannot reproduce an invalid experiment as a successful run")
-            executable = old_dir/("simulator.exe" if (old_dir/"simulator.exe").exists() else "simulator")
+            executable = old_dir/old.get("executable_artifact", "simulator.exe" if (old_dir/"simulator.exe").exists() else "simulator")
             replay_dir = Path(args.output).resolve()/("replay-"+uuid.uuid4().hex[:12])
             d, m = run(load(old_dir/"scenario.json"), executable, replay_dir, args.timeout,
                        old.get("requested_rtl", False), old.get("allow_unqualified_systemc", False))
             same = succeeded(m) and m.get("native", {}).get("event_digest") == old.get("native", {}).get("event_digest")
+            same = (same and m["native"]["event_count"] == old["native"]["event_count"]
+                    and (old_dir/"responses.csv").read_bytes() == (d/"responses.csv").read_bytes())
             if old.get("requested_rtl") and same:
                 same = (old_dir/"wdt_reference.sv").read_bytes() == (d/"wdt_reference.sv").read_bytes()
-            dump(replay_dir/"replay.json", {"original": str(old_dir), "reproduced": str(d), "semantic_digest_matches": same})
+            dump(replay_dir/"replay.json", {"original": str(old_dir), "reproduced": str(d), "semantic_digest_matches": same,
+                                          "method": "native semantic event count/digest plus byte-identical response table"})
             show(d, m)
             return 0 if same else 1
         elif args.command == "analyze":
@@ -230,12 +243,13 @@ def main(argv=None):
             print(result["status"])
             return 0 if result["status"] == "pass" else 1
         elif args.command == "regress":
-            require(args.absolute >= 0 and args.relative >= 0, "Negative regression tolerance")
+            require(all(math.isfinite(v) and v >= 0 for v in (args.absolute, args.relative)),
+                    "Regression tolerances must be finite and nonnegative")
             def metric(path):
                 d = Path(path)
                 m = verify_run(d)
                 require(succeeded(m), "Regression requires successful runs and any requested RTL gate")
-                return load(d/"scenario.json"), json.loads((d/"metrics.json").read_text())
+                return load(d/"scenario.json"), load_json(d/"metrics.json")
             ca, a = metric(args.baseline)
             cb, b = metric(args.candidate)
             for key in ("adapter", "clock", "parameters", "reset", "workload", "measurement", "seed"):
@@ -255,6 +269,9 @@ def main(argv=None):
                                "skipped": skipped})
             return 0 if all(r["passed"] for r in results) else 1
         return 0
-    except (OSError, ValueError, KeyError, TypeError) as error:
+    except KeyboardInterrupt:
+        print("ERROR: Interrupted; inspect retained run checkpoints and manifests", file=sys.stderr)
+        return 130
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2

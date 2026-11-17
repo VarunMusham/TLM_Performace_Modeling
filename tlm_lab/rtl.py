@@ -112,8 +112,7 @@ def run_reference(c, directory, timeout, records, iverilog="iverilog", vvp="vvp"
     (directory/"rtl_tb.sv").write_text(testbench(c), encoding="ascii")
     for stem, command in [("rtl_build", [iverilog, "-g2012", "-s", "tb", "-o", "reference.vvp", "wdt_reference.sv", "rtl_tb.sv"]),
                           ("rtl_simulation", [vvp, "reference.vvp"])]:
-        result = process(command, directory, stem, timeout)
-        records.append(result)
+        result = process(command, directory, stem, timeout, records)
         require(not result["timed_out"] and result["exit_code"] == 0, f"{stem} failed; inspect {stem}.stderr.log")
     events = normalize(read_pilot(directory/"rtl.csv"), c, directory.name, "rtl")
     write_jsonl(directory/"rtl.events.jsonl", events)

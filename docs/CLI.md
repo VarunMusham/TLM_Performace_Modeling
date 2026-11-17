@@ -23,8 +23,10 @@ The older `wdt_pilot CASE TRACE` retains its eight fixed sanity cases.
 ## Scenario contract
 
 The executable example uses schema version `"1"` and adapter `"hybrid_wdt"`.
-Unknown fields, duplicate JSON keys, unsupported adapters, and ambiguous timing
-are rejected. `adapters` prints the registered capability/timing contract.
+Unknown fields, duplicate JSON keys, non-finite numbers (including overflowing
+exponents), unsupported adapters, and ambiguous timing are rejected. Duplicate-key
+and finite-number checks also apply to matrices, canonical events and retained
+JSON evidence. `adapters` prints the registered capability/timing contract.
 Times are nonnegative integer ticks (1 ns), as decimal strings or JSON integers.
 Addresses also accept `0x` strings. Data values are unsigned 32-bit integers.
 
@@ -71,16 +73,27 @@ canonical string-tick JSONL, responses, metrics JSON/CSV, and `report.html`.
 RTL runs also retain reference/testbench sources, compiled simulation, tool logs,
 RTL traces/responses, canonical events, and the correlation report.
 
-`started.json` is an interruption checkpoint. Final `manifest.json` records Git
+`started.json` is written before executable copying and provenance collection.
+Preparation/launch failures retain their attempt directory, error, manifest and
+report whenever the filesystem remains writable. `stage` identifies where the
+attempt stopped; `finished_utc` records finalization time. Final `manifest.json` records Git
 revision/dirty status, source/executable/input hashes, available build-cache and
 compiler settings, actual SystemC version, Python/host/PATH, child argument arrays,
-working directories, deadlines, wall times, exit statuses, RTL tool versions and
+working directories, deadlines, wall times, launch errors, cancellation and exit statuses, RTL tool versions and
 hashes, trace mode/count, termination, validity, and qualification scope.
 Source hashes describe files observed at run time; for externally built binaries,
 they do not prove which source bytes produced the executable. Rebuild before
 making source-level claims. Shared runtime DLLs remain host dependencies.
 
-`artifacts_sha256` checks retained evidence before replay/analysis. Evidence is
+JSON and canonical JSONL outputs are published atomically after flushing a
+temporary file, without replacing an existing destination. This requires local
+NTFS or another filesystem supporting same-directory hard links; unsupported
+filesystems fail explicitly. A failed publication leaves no partial final JSON.
+Abrupt host termination can leave a temporary file and an unfinished checkpoint;
+disk failure can prevent finalization. These are not successful experiments.
+
+`artifacts_sha256` checks retained evidence before replay/analysis, including
+required artifact coverage and the retained executable hash. Evidence is
 hashed before rendering the report. The manifest and report are not cryptographic
 signatures and do not authenticate themselves. Replay/profile result metadata
 lives outside finalized child run directories.
@@ -92,7 +105,10 @@ inconclusive. `--allow-unqualified-systemc` explicitly permits compatibility run
 but cannot award target-version RTL qualification. Without it, non-2.3.4 is invalid.
 
 Exit codes: 0 success; 1 failed/invalid/inconclusive requested experiment or gate;
-2 CLI/configuration error. Requested RTL correlation must pass to exit 0.
+2 CLI/configuration error; 130 user interruption. An interrupted single run
+cleans up its child process and finalizes an invalid attempt before returning 130,
+when storage permits. Interrupted/failed builds retain `build.json` command
+records. Requested RTL correlation must pass to exit 0.
 
 ## Analysis, import, replay, and regression
 
@@ -114,7 +130,10 @@ Comparison matches logical IDs/event occurrences and checks missing/duplicate
 events, values, WDT architectural order, clock domain, and integer ticks. Delta
 counts are simulator-local. No fitted shift is applied. `--tolerance-tick N`
 selects explicitly bounded timing, never labeled exact. Reports retain the first
-mismatch and up to 100 detailed differences.
+mismatch and up to 100 detailed differences. Same-tick mismatches use a stable
+identity ordering. Canonical v1 integer scalars must be normalized decimal
+strings; floating-point ticks, missing clock identity and invalid register widths
+are rejected. Offline analysis also checks operation kind and clock cycle.
 
 Latency uses admissions within the window, followed through drain. Throughput
 uses successful completions in the window, including earlier admissions. Payload
@@ -124,11 +143,13 @@ edge wait, time-weighted inflight occupancy, busy fraction, WDT timeout cycles,
 and output assertion delay from expiry. Unsupported queue/wire/stall values are
 unavailable. Intervals are clipped and seeded from pre-window state. Short samples
 are labeled. Regression requires equivalent scenarios and applies
-`max(absolute, relative*abs(baseline))` to latency KPIs. Tail gates are skipped
+`max(absolute, relative*abs(baseline))` to latency KPIs. Tolerances must be finite
+and nonnegative. Tail gates are skipped
 below 100 successful samples.
 
 Replay verifies evidence hashes and reruns the retained native binary in a new
-directory, checking the semantic digest and any requested RTL gate. Changed RTL
+directory, checking semantic event count/digest, byte-identical responses, and
+any requested RTL gate. Changed RTL
 reference bytes cannot silently qualify as the same replay.
 
 ## Generated workloads, sweeps, and profiling
@@ -141,7 +162,9 @@ python -m tlm_lab profile configs/wdt_scenario.example.json --rtl
 ```
 
 Generation materializes seeded reads, LOAD, enable/disable, kick, W1C, annotations,
-and offsets. Materialized inputs remain authoritative if generators change.
+and offsets. Equivalent integer/string seeds produce the same workload. The time
+budget includes the initial reset release, including clocks with a late first edge.
+Materialized inputs remain authoritative if generators change.
 Matrices support bus latency, clock period/first edge, and seeds, with optional
 `workload_generator.count` to produce traffic per seed. Without a generator,
 seeds are metadata for the supplied directed workload. Directed expectations are
@@ -150,8 +173,11 @@ retained when parameters change without a generator; revise them explicitly.
 Sweep prevalidation precedes simulation launch. Each experiment gets its own
 process/directory, bounded by `--jobs` (1..32) and `--max-runs` (default 100).
 Summary JSON lists every result. Parallel host runtime is unsuitable for speed
-claims. Profile checks identical semantic digests and response tables for a
-trace-on/off pair before reporting wall-time ratio. This single noisy measurement
+claims. Sweep cancellation/resume across worker threads remains future work;
+interrupting the coordinator can wait for already queued work to finish.
+Profile checks identical semantic event counts/digests and response tables for a
+trace-on/off pair before reporting wall-time ratio. Failed pairs retain both
+attempts and a failing summary with a null ratio. This single noisy measurement
 includes process startup and digest work; it is not a trace budget or TLM/RTL
 speedup claim.
 

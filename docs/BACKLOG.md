@@ -26,6 +26,14 @@ roadmap ranges; do not add both estimates together.
 
 ## Ticket completion details
 
+Maintenance update (2026-11-18, CLI 1.0.1): a subset of B02/B07/B10 is implemented
+for the existing WDT v1 path: strict JSON/evidence checks, atomic non-overwriting
+JSON publication, checkpoints before preparation, retained failed/interrupted
+attempts/build records, stronger replay checks, and failed-profile summaries.
+Fault-injection tests cover these changes. This does not close those tickets:
+versioned generic schemas, build attestation, recoverable job scheduling, sweep
+cancellation/resume and clean-host dependency capture still require their gates.
+
 **B01:** Store intake evidence for each candidate. Select first profile and KPI
 questions. Pin representative WDT v1 raw/canonical/response fixtures, commands,
 versions and baseline evidence. Record provisional capacity host and policy

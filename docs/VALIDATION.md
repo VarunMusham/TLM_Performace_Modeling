@@ -1,5 +1,20 @@
 # Current CLI validation
 
+Maintenance validation, **2026-11-18 / CLI 1.0.1**: the existing SystemC 2.3.4
+native build and all 18 CTest entries pass with **46 unittest methods** (20
+existing plus 26 failure/input/evidence tests). The added suite exercises atomic
+publication and a competing writer, partial writes, malformed JSON/canonical
+fields, incomplete hash coverage, retained preparation/launch/build failures,
+child cleanup on interruption, failed profiles, replay response mismatches,
+numeric-string seeds, late clocks, response timing and deterministic mismatch
+ordering. These orchestration changes do not modify WDT or RTL timing code.
+
+The documented 16-run RTL sweep and trace-on/off profile were rerun successfully.
+Maintenance evidence is retained under ignored `runs/hardening-20261118/`.
+Use `python -m unittest discover -s tests -p test_hardening.py -v` to exercise the
+26 added tests without a SystemC or RTL installation. Full qualification still
+requires the CTest/integration environment below.
+
 Validated 2026-11-17 on Windows with MSYS2 UCRT64 GCC 16.1.0, C++14,
 CMake 4.1.1/Ninja, Python 3.13.5, Icarus 12.0 (development build), and actual
 **SystemC 2.3.4**, official tag commit
