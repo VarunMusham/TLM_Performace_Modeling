@@ -3,6 +3,7 @@
 /build*/
 /runs/
 /private/
+/dist/
 __pycache__/
 *.pyc
 *.vcd

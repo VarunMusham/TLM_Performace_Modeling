@@ -165,6 +165,9 @@ class FailureLifecycle(TemporaryTest):
     def test_git_is_optional_for_source_exports(self):
         with patch("tlm_lab.runner.subprocess.run", side_effect=FileNotFoundError("no git")):
             self.assertIsNone(git("rev-parse", "HEAD"))
+        with patch("tlm_lab.runner.ROOT", self.directory), patch("tlm_lab.runner.subprocess.run") as command:
+            self.assertIsNone(git("rev-parse", "HEAD"))
+            command.assert_not_called()
 
     def test_failed_profile_has_no_runtime_claim(self):
         source = self.directory/"scenario.json"
@@ -225,6 +228,7 @@ class FailureLifecycle(TemporaryTest):
         manifest = {"validity": "valid", "requested_rtl": False,
                     "native": {"event_digest": "123", "event_count": 10},
                     "correlation": "uncorrelated", "termination": "normal_drain"}
+        dump(original/"manifest.json", manifest)
         def rerun(c, executable, output, *args):
             output.mkdir(parents=True)
             return replay, copy.deepcopy(manifest)

@@ -26,6 +26,14 @@ roadmap ranges; do not add both estimates together.
 
 ## Ticket completion details
 
+Customer pilot update (2026-11-18, CLI 1.1.0): external-1 source/testbench adapters,
+Python/C++ observers/templates, concurrent boundary reducers, source snapshots,
+rebuild replay, generic sweeps and an offline customer distribution implement
+parts of B02-B07/B10/B11. SystemC source is vendored with its upstream notices and
+hash pin. Protocol-specific SDKs, resource/lineage streams, real-IP qualification,
+hermetic toolchains and multi-IP composition remain open; this is not an R1 gate
+closure. See [external-1](EXTERNAL_ADAPTERS.md) for the implemented boundary.
+
 Maintenance update (2026-11-18, CLI 1.0.1): a subset of B02/B07/B10 is implemented
 for the existing WDT v1 path: strict JSON/evidence checks, atomic non-overwriting
 JSON publication, checkpoints before preparation, retained failed/interrupted

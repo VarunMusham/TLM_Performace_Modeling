@@ -1,5 +1,11 @@
 # Developer handoff: hybrid TLM performance platform
 
+For pilot customers, start with the [customer guide](CUSTOMER_GUIDE.md) and
+[external adapter reference](EXTERNAL_ADAPTERS.md). CLI 1.1.0 adds source/testbench
+adapters, a Python-only demo, C++ starter, boundary metrics and offline SystemC
+setup. The design documents below describe a broader future program; external-1
+does not close protocol qualification or multi-IP composition requirements.
+
 Design baseline: 2026-11-17. Implementation inspected at `43ba848`.
 This pack specifies the next development program; it does not declare the
 proposed contracts implemented. Runtime instructions remain in [CLI](CLI.md).

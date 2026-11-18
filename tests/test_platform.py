@@ -13,7 +13,7 @@ import io
 from tlm_lab.config import load, validate
 from tlm_lab.events import compare_events, read_jsonl
 from tlm_lab.metrics import analyze, distribution, occupancy, union_duration
-from tlm_lab.runner import ROOT, run, verify_run, process
+from tlm_lab.runner import ROOT, run, verify_run, process, default_executable
 from tlm_lab.cli import generated, main
 
 
@@ -90,7 +90,7 @@ class Contracts(unittest.TestCase):
             self.assertNotEqual(result["exit_code"], 0)
 
 
-EXE = Path(os.environ.get("TLM_LAB_EXECUTABLE", ROOT/"build-234"/("wdt_scenario.exe" if os.name == "nt" else "wdt_scenario")))
+EXE = Path(os.environ.get("TLM_LAB_EXECUTABLE", default_executable()))
 
 
 @unittest.skipUnless(EXE.exists(), "Build wdt_scenario first")

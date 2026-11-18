@@ -1,6 +1,10 @@
 # Adapter SDK and integration contract
 
-Status: proposed R1 design; current implementation is the WDT special case.
+Status: proposed full R1 design. CLI 1.1.0 implements a smaller
+[external source/testbench contract](EXTERNAL_ADAPTERS.md), with Python/C++
+observers, isolated build/run, generic boundary metrics and retained-source replay.
+The WDT special case remains compatible. The larger SDK, protocol profiles and
+qualification design below is not fully implemented by external-1.
 Requirements REQ-01/02/03/05/12/17; tickets B02-B04/B09.
 
 ## Registry and package

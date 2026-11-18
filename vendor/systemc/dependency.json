@@ -1,0 +1,10 @@
+{
+  "name": "SystemC", "version": "2.3.4",
+  "upstream": "https://github.com/accellera-official/systemc",
+  "revision": "5fc1469339775b54b1fcc2020ac744a58be5b50e",
+  "archive": "systemc-2.3.4.tar.gz",
+  "sha256": "39424f93f29095728c6755010fddcd5e4af1e12606207bfeb48015779dbaa18b",
+  "format": "git archive --format=tar.gz --prefix=systemc-2.3.4/ at the pinned revision",
+  "modified": false,
+  "license": "Apache-2.0; upstream per-file notices also retained in the archive"
+}

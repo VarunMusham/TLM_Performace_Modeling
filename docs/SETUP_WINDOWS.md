@@ -1,5 +1,15 @@
 # Windows setup
 
+For a customer pilot, start with `python tlm-lab.py demo --open`: only Python 3.9+
+is needed. For native WDT, `python tlm-lab.py setup-wdt` verifies and builds the
+SystemC 2.3.4 source bundled under `vendor/systemc/`, then builds `build-pilot/`.
+This offline setup needs CMake, Ninja and a C++ compiler; it does not download
+packages or install system-wide files. The CLI automatically prefers the resulting
+binary. MinGW WDT builds link their compiler runtime statically, reducing PATH/DLL
+requirements for the retained binary. Icarus remains optional for `--rtl`.
+See [customer setup](CUSTOMER_GUIDE.md) for troubleshooting. Manual and historical
+setup instructions below remain available for other installations.
+
 Target: SystemC 2.3.4, a compatible C++14 compiler/runtime, CMake, and Python 3.9+
 for the CLI and trace checks. Icarus `iverilog`/`vvp` enables RTL comparison and
 the full integration test suite. Use the same compiler family, architecture, runtime,

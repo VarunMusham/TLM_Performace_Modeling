@@ -1,5 +1,12 @@
 # Implementation audit and engineering gaps
 
+Current pilot update (2026-11-18): CLI 1.1.0 now includes the
+[external-1](EXTERNAL_ADAPTERS.md) source/testbench path, generic concurrent
+boundary accounting, Python/C++ capture helpers, customer templates/diagnostics,
+retained-source replay, and offline SystemC setup/distribution. The table below is
+a historical baseline audit. Resource/lineage semantics, protocol-specific
+qualification, toolchain capture and multi-IP composition remain roadmap gaps.
+
 Inspected baseline `43ba848`, clean worktree before this documentation change.
 Read source, configuration, tests and existing CTest evidence. This review did
 not rerun simulation: the recorded baseline has 18 passing CTest entries including

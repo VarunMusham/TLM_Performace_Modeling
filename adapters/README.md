@@ -1,5 +1,11 @@
 # Adapter integration template
 
+For the implemented customer workflow, run `python tlm-lab.py init my-ip` or
+`init my-ip --template cpp`, then follow the
+[external adapter contract](../docs/EXTERNAL_ADAPTERS.md). This supports existing
+source/testbench build commands without changing core platform code. The
+checklist below remains useful for model-specific accuracy and timing review.
+
 For each IP, document:
 
 - Model owner/revision, build entry point, compiler/SystemC ABI, and dependencies.

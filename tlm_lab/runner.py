@@ -21,6 +21,12 @@ from .storage import dump, load_json
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def default_executable():
+    binary = "wdt_scenario.exe" if os.name == "nt" else "wdt_scenario"
+    candidates = [ROOT/"build-pilot"/binary, ROOT/"build-pilot"/"Release"/binary, ROOT/"build-234"/binary]
+    return next((path for path in candidates if path.is_file()), candidates[-1])
+
+
 def digest(path):
     h = hashlib.sha256()
     with Path(path).open("rb") as f:
@@ -30,6 +36,8 @@ def digest(path):
 
 
 def git(*args):
+    if not (ROOT/".git").exists():
+        return None  # A distribution extracted inside another repo is not that repo.
     try:
         result = subprocess.run(["git", "-c", f"safe.directory={ROOT.as_posix()}", *args],
                                 cwd=ROOT, capture_output=True, text=True, timeout=10)
@@ -41,7 +49,7 @@ def git(*args):
 def provenance():
     # Hash source bytes even when Git has no clean revision (include untracked source).
     hashes = {}
-    for folder in ("tlm_lab", "examples", "rtl", "adapters", "configs", "tools", "docs", "tests"):
+    for folder in ("tlm_lab", "examples", "rtl", "adapters", "configs", "tools", "docs", "tests", "sdk", "vendor"):
         for path in sorted((ROOT/folder).rglob("*")):
             if path.is_file() and "__pycache__" not in path.parts:
                 hashes[path.relative_to(ROOT).as_posix()] = digest(path)

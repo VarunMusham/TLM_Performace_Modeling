@@ -1,0 +1,14 @@
+{
+  "schema_version": "external-1",
+  "name": "queue_demo",
+  "adapter": "portable_queue",
+  "parameters": {"lanes": 2, "service_tick": 10},
+  "measurement": {"start_tick": "0", "end_tick": "100", "drain_deadline_tick": "150"},
+  "workload": [
+    {"id": "slow", "offer_tick": 0, "payload_bytes": 64, "work": 4},
+    {"id": "fast", "offer_tick": 0, "payload_bytes": 64, "work": 1},
+    {"id": "next", "offer_tick": 5, "payload_bytes": 128, "work": 2},
+    {"id": "last", "offer_tick": 10, "payload_bytes": 32, "work": 1}
+  ],
+  "expectations": {"offered": 4, "admitted": 4, "completed": 4, "outstanding": 0}
+}

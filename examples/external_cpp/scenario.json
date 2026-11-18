@@ -1,0 +1,6 @@
+{
+  "schema_version": "external-1", "name": "cpp_demo", "adapter": "external_cpp",
+  "parameters": {"service_tick": 10, "count": 4}, "workload": [],
+  "measurement": {"start_tick": "0", "end_tick": "100", "drain_deadline_tick": "150"},
+  "expectations": {"admitted": 4, "completed": 4, "outstanding": 0}
+}

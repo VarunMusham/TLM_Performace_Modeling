@@ -6,5 +6,9 @@ metrics, independent WDT RTL comparison, reports, seeded sweeps, replay,
 profiling, and regression. See [CLI](../docs/CLI.md) and
 [architecture](../docs/ARCHITECTURE.md).
 
-General external-IP adapters and topology authoring remain future extensions.
+Source/testbench integration is available through
+[external-1](../docs/EXTERNAL_ADAPTERS.md), with generic concurrent transaction
+accounting, isolated builds and retained-source replay. Start with the
+[customer guide](../docs/CUSTOMER_GUIDE.md). Protocol-specific adapters, internal
+resource instrumentation and multi-IP topology authoring remain future work.
 

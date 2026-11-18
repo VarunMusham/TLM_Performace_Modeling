@@ -1,5 +1,32 @@
 # Current CLI validation
 
+Customer pilot validation, **2026-11-18 / CLI 1.1.0**: all **18 CTest entries**
+pass using the native `build-pilot` installation, including **71 unittest methods**.
+The 25 new external-adapter tests cover concurrent/out-of-order boundary metrics,
+warm-up/drain/censoring, rejected/failed traffic, unknown payload sizes, malformed
+contracts, source snapshots, missing build tools, timeouts, interruption, trace
+loss, external sweeps, replay after original source changes, CLI diagnostics,
+custom CSV mappings, and a real C++ source/testbench build.
+
+The distribution test builds deterministic ZIPs, verifies every manifest hash,
+checks excluded local directories, extracts into a separate folder with spaces,
+and runs the demo there without package installation. Project paths with spaces
+and Unicode are exercised. The Windows `.cmd` launcher validates the example.
+
+Offline `setup-wdt` built the vendored SystemC 2.3.4 archive from scratch after
+checking SHA-256. GCC runtime DLL imports are absent from the resulting native
+WDT executable (Windows/UCRT system DLLs remain). Native/RTL tests pass under the
+existing Windows GCC/Icarus toolchain. The generic report was visually inspected
+in an isolated headless Chrome rendering. No clean-host MSVC or commercial-simulator
+qualification is claimed. Customer-specific protocol accuracy remains the model
+owner's integration/qualification work.
+
+Pilot evidence is under ignored `runs/customer-pilot*/` and `runs/setup-*/`.
+The shareable ZIP is produced by `python tools/package_pilot.py`; generated ZIPs,
+builds, customer sources and run artifacts are not committed to the source repo.
+The official SystemC source archive and its licence/notices are committed under
+`vendor/systemc/` for offline installation.
+
 Maintenance validation, **2026-11-18 / CLI 1.0.1**: the existing SystemC 2.3.4
 native build and all 18 CTest entries pass with **46 unittest methods** (20
 existing plus 26 failure/input/evidence tests). The added suite exercises atomic

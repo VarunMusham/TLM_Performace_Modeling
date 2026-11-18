@@ -1,0 +1,17 @@
+{
+  "schema_version": "external-1", "adapter_id": "external_cpp", "version": "1.0.0",
+  "description": "Build a standalone C++ source/testbench without SystemC", "model_kind": "synthetic",
+  "time_resolution_fs": "1000000",
+  "sources": ["CMakeLists.txt", "model.hpp", "testbench.cpp"],
+  "parameters": {
+    "service_tick": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 10},
+    "count": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 4}
+  },
+  "build": [
+    ["cmake", "-S", "{source_dir}", "-B", "{build_dir}", "-G", "Ninja", "-DTLM_LAB_SDK={sdk_dir}/cpp"],
+    ["cmake", "--build", "{build_dir}", "--config", "Release"]
+  ],
+  "run": ["{build_dir}/ip_demo{exe_suffix}", "{run_dir}", "{param_service_tick}", "{param_count}", "{drain_deadline_tick}"],
+  "requirements": ["CMake 3.16+, Ninja and a C++14 compiler on PATH; edit build arguments for your toolchain"],
+  "tools": {"CMake": ["cmake"], "Ninja": ["ninja"], "C++ compiler": ["g++", "cl", "c++"]}
+}

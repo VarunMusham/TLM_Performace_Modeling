@@ -9,10 +9,11 @@ import random
 import subprocess
 import sys
 import uuid
+import webbrowser
 from .config import load, validate, require, fields, integer
 from .events import read_jsonl, read_pilot, normalize, validate_lifecycles, write_jsonl, compare_events
 from .metrics import analyze
-from .runner import run, dump, verify_run, ROOT, process
+from .runner import run, dump, verify_run, ROOT, process, default_executable
 from .storage import load_json
 
 
@@ -20,12 +21,23 @@ def succeeded(m):
     return m["validity"] == "valid" and (not m.get("requested_rtl") or m["correlation"] == "pass")
 
 
+def manifest_schema(directory):
+    manifest = load_json(Path(directory)/"manifest.json")
+    require(isinstance(manifest, dict), "Run manifest must be a JSON object")
+    return manifest.get("schema_version")
+
+
 def show(directory, m):
     print(json.dumps({"run": str(directory), "validity": m["validity"], "correlation": m["correlation"],
-                      "termination": m["termination"], "error": m.get("error")}, indent=2))
+                      "termination": m["termination"], "error": m.get("error"), "report": str(directory/"report.html")}, indent=2))
 
 
 def execute(args, c=None):
+    if getattr(args, "adapter", None):
+        from .external import run as external_run
+        require(not args.rtl, "External adapters use independent boundary-trace comparison; --rtl is the WDT reference gate")
+        return external_run(c if c is not None else load_json(args.scenario), args.adapter, args.output,
+                            args.timeout, args.build_timeout, progress=lambda message: print(message, file=sys.stderr, flush=True))
     return run(c or load(args.scenario), args.executable, args.output, args.timeout,
                args.rtl, args.allow_unqualified_systemc)
 
@@ -56,15 +68,24 @@ def generated(seed, count=30, template=None):
 
 
 def batch(args):
-    base = load(args.scenario)
+    adapter = None
+    if args.adapter:
+        from .external import load_adapter, resolve_scenario, run as external_run
+        adapter = load_adapter(args.adapter)
+        require(not args.rtl, "--rtl is available for the built-in WDT; compare external boundary traces independently")
+        base = resolve_scenario(load_json(args.scenario), adapter)
+    else:
+        base = load(args.scenario)
     spec = load_json(args.matrix)
     fields(spec, {"parameters", "seeds", "workload_generator"}, {"parameters"})
     generator = spec.get("workload_generator")
+    require(not adapter or generator is None, "External workload generation belongs in your testbench; remove workload_generator")
     if generator is not None:
         fields(generator, {"count"}, {"count"})
         count = integer(generator["count"], "generator count", 1, 100000)
     require(isinstance(spec["parameters"], dict), "Matrix parameters must be an object")
-    allowed = {"parameters.bus_latency_tick", "clock.period_tick", "clock.first_rising_tick"}
+    allowed = ({"parameters."+name for name in adapter["parameters"]} if adapter else
+               {"parameters.bus_latency_tick", "clock.period_tick", "clock.first_rising_tick"})
     require(set(spec["parameters"]) <= allowed, "Unsupported sweep parameter")
     axes = list(spec["parameters"])
     values = [spec["parameters"][k] for k in axes] + [spec.get("seeds", [base.get("seed", 0)])]
@@ -84,13 +105,14 @@ def batch(args):
             c = generated(c["seed"], count, c)
         suffix = f"_s{index}"
         c["name"] = c["name"][:80-len(suffix)] + suffix
-        configs.append(validate(c))
+        configs.append(resolve_scenario(c, adapter) if adapter else validate(c))
     directory = Path(args.output).resolve()/f"sweep-{uuid.uuid4().hex[:12]}"
     directory.mkdir(parents=True, exist_ok=False)
     dump(directory/"matrix.json", spec)
     def task(c):
         try:
-            d, m = run(c, args.executable, directory, args.timeout, args.rtl, args.allow_unqualified_systemc)
+            d, m = (external_run(c, args.adapter, directory, args.timeout, args.build_timeout) if adapter else
+                    run(c, args.executable, directory, args.timeout, args.rtl, args.allow_unqualified_systemc))
             return {"run": str(d), "validity": m["validity"], "correlation": m["correlation"], "passed": succeeded(m)}
         except (ValueError, OSError) as e:
             return {"name": c["name"], "passed": False, "error": str(e)}
@@ -102,8 +124,23 @@ def batch(args):
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(description="Hybrid TLM performance lab (1 ns ticks)")
+    p = argparse.ArgumentParser(description="TLM Performance Lab — run, measure and compare IP testbenches locally",
+                                epilog="New here? Run 'demo --open' for a Python-only walkthrough, or 'init my-ip' to start your project.")
     sub = p.add_subparsers(dest="command", required=True)
+    demo = sub.add_parser("demo", help="Run a complete Python-only example; no compiler or simulator required")
+    demo.add_argument("--output", default="runs")
+    demo.add_argument("--open", action="store_true", help="Open the local HTML report in your browser")
+    init = sub.add_parser("init", help="Create a source/testbench project you can adapt to your IP")
+    init.add_argument("directory")
+    init.add_argument("--template", choices=("python", "cpp"), default="python")
+    doctor = sub.add_parser("doctor", help="Check required and optional tools without building or running your IP")
+    doctor.add_argument("--adapter", help="Path to your project's adapter.json")
+    doctor.add_argument("--wdt", action="store_true")
+    doctor.add_argument("--json", action="store_true")
+    setup = sub.add_parser("setup-wdt", help="Build bundled SystemC source and the WDT example without downloads")
+    setup.add_argument("--compiler")
+    setup.add_argument("--generator", default="Ninja")
+    setup.add_argument("--jobs", type=int, default=4)
     b = sub.add_parser("build", help="Configure and build against a SystemC installation")
     b.add_argument("--systemc-prefix", required=True)
     b.add_argument("--build-dir", default="build-234")
@@ -111,15 +148,20 @@ def main(argv=None):
     b.add_argument("--allow-unqualified-systemc", action="store_true")
     v = sub.add_parser("validate", help="Validate strict scenario and adapter capability contract")
     v.add_argument("scenario")
-    sub.add_parser("adapters", help="Show the registered adapter timing/capability contract")
+    v.add_argument("--adapter", help="Validate an external scenario using this adapter manifest")
+    adapters = sub.add_parser("adapters", help="List examples or inspect a customer adapter manifest")
+    adapters.add_argument("--manifest")
     for name in ("run", "sweep", "profile"):
-        r = sub.add_parser(name)
+        r = sub.add_parser(name, help={"run": "Build/run a scenario and write an offline report", "sweep": "Explore a parameter matrix", "profile": "Check WDT trace-on/off equivalence"}[name])
         r.add_argument("scenario")
-        r.add_argument("--executable", default="build-234/wdt_scenario.exe" if sys.platform == "win32" else "build-234/wdt_scenario")
+        r.add_argument("--executable", default=str(default_executable()))
         r.add_argument("--output", default="runs")
         r.add_argument("--timeout", type=float, default=30)
         r.add_argument("--rtl", action="store_true")
         r.add_argument("--allow-unqualified-systemc", action="store_true")
+        r.add_argument("--adapter", help="Source/testbench adapter.json; omit for the built-in WDT")
+        r.add_argument("--build-timeout", type=float, default=300, help="Host seconds per external build command")
+        r.add_argument("--open", action="store_true", help="Open the report after a single run")
         if name == "sweep":
             r.add_argument("--matrix", required=True)
             r.add_argument("--jobs", type=int, default=1)
@@ -149,13 +191,58 @@ def main(argv=None):
     g.add_argument("--seed", type=int, required=True)
     g.add_argument("--count", type=int, default=30)
     g.add_argument("--output", required=True)
+    if argv == [] or argv is None and len(sys.argv) == 1:
+        p.print_help()
+        return 0
     args = p.parse_args(argv)
     try:
-        if args.command == "validate":
-            load(args.scenario)
-            print("VALID hybrid_wdt schema 1")
+        if args.command == "demo":
+            from .external import run as external_run
+            example = ROOT/"examples"/"portable_queue"
+            d, m = external_run(load_json(example/"scenario.json"), example/"adapter.json", args.output)
+            show(d, m)
+            if args.open:
+                webbrowser.open((d/"report.html").as_uri())
+            return 0 if succeeded(m) else 1
+        elif args.command == "init":
+            from .pilot import initialize
+            directory = initialize(args.directory, args.template)
+            launcher = f'"{sys.executable}" "{ROOT / "tlm-lab.py"}"'
+            print(f'Created {directory}\n\nTry the example:\n{launcher} doctor --adapter "{directory / "adapter.json"}"\n'
+                  f'{launcher} run "{directory / "scenario.json"}" --adapter "{directory / "adapter.json"}" --open\n\n'
+                  'Then replace the source/testbench and edit adapter.json. See docs/CUSTOMER_GUIDE.md.')
+        elif args.command == "doctor":
+            from .pilot import doctor as diagnose
+            result = diagnose(args.adapter, args.wdt)
+            if args.json:
+                print(json.dumps(result, indent=2))
+            else:
+                for check in result["checks"]:
+                    status = "OK" if check["ok"] else "MISSING" if check["required"] else "OPTIONAL"
+                    print(f"[{status}] {check['name']}: {check['detail']}")
+                    if check["required"] and not check["ok"]:
+                        print("  Next: "+check["action"])
+                print("\n"+"\n".join(result["requirements"])+"\n\nNext: "+result["next"])
+            return 0 if result["ready"] else 1
+        elif args.command == "setup-wdt":
+            from .setup import setup_wdt
+            print(setup_wdt(args.compiler, args.generator, args.jobs))
+        elif args.command == "validate":
+            if args.adapter:
+                from .external import load_adapter, resolve_scenario
+                c = resolve_scenario(load_json(args.scenario), load_adapter(args.adapter))
+                print(f"VALID {c['adapter']} external-1")
+            else:
+                load(args.scenario)
+                print("VALID hybrid_wdt schema 1")
         elif args.command == "adapters":
-            print((ROOT/"configs"/"adapter_contract.example.json").read_text())
+            if args.manifest:
+                from .external import load_adapter
+                print(json.dumps(load_adapter(args.manifest), indent=2))
+            else:
+                print(json.dumps({"built_in": load_json(ROOT/"configs"/"adapter_contract.example.json"),
+                                  "external_examples": [str(ROOT/"examples"/name/"adapter.json") for name in ("portable_queue", "external_cpp")],
+                                  "new_ip": "init my-ip --template python|cpp; then edit adapter.json"}, indent=2))
         elif args.command == "build":
             directory = Path(args.build_dir).resolve()
             directory.mkdir(parents=True, exist_ok=True)
@@ -178,6 +265,8 @@ def main(argv=None):
         elif args.command == "run":
             d, m = execute(args)
             show(d, m)
+            if args.open:
+                webbrowser.open((d/"report.html").as_uri())
             return 0 if succeeded(m) else 1
         elif args.command == "generate":
             require(1 <= args.count <= 100000, "count must be 1..100000")
@@ -187,6 +276,7 @@ def main(argv=None):
             require(1 <= args.jobs <= 32 and args.max_runs > 0, "Invalid sweep limits")
             return batch(args)
         elif args.command == "profile":
+            require(not args.adapter, "Trace-off equivalence is WDT-specific; external adapters must define their own capture-off behavior")
             c = load(args.scenario)
             c.setdefault("trace", {})["mode"] = "full"
             profile_dir = Path(args.output).resolve()/("profile-"+uuid.uuid4().hex[:12])
@@ -208,6 +298,19 @@ def main(argv=None):
             return 0 if equal else 1
         elif args.command == "replay":
             old_dir = Path(args.run_dir).resolve()
+            if manifest_schema(old_dir) == "external-1":
+                from .external import verify, run as external_run
+                from .transactions import read_events, compare
+                old = verify(old_dir)
+                require(old["validity"] == "valid", "Cannot replay an invalid experiment as a successful run")
+                replay_dir = Path(args.output).resolve()/("replay-"+uuid.uuid4().hex[:12])
+                d, m = external_run(load_json(old_dir/"scenario.json"), old_dir/"adapter.json", replay_dir, args.timeout,
+                                    source_root=old_dir/"source", sdk_root=old_dir/"sdk")
+                comparison = compare(read_events(old_dir/"events.jsonl"), read_events(d/"events.jsonl")) if succeeded(m) else {"status": "fail"}
+                dump(replay_dir/"replay.json", {"original": str(old_dir), "reproduced": str(d), "comparison": comparison,
+                                               "method": "Rebuild retained source/testbench/SDK using host tools; compare transaction boundaries"})
+                show(d, m)
+                return 0 if comparison["status"] == "pass" else 1
             old = verify_run(old_dir)
             require(old["validity"] == "valid", "Cannot reproduce an invalid experiment as a successful run")
             executable = old_dir/old.get("executable_artifact", "simulator.exe" if (old_dir/"simulator.exe").exists() else "simulator")
@@ -225,6 +328,13 @@ def main(argv=None):
             return 0 if same else 1
         elif args.command == "analyze":
             d = Path(args.run_dir)
+            if manifest_schema(d) == "external-1":
+                from .external import verify, load_adapter, check_capture
+                manifest = verify(d)
+                require(manifest["validity"] == "valid", "Invalid runs cannot produce trusted metrics")
+                _, metrics = check_capture(d, load_adapter(d/"adapter.json"), load_json(d/"scenario.json"))
+                dump(args.output, metrics)
+                return 0
             manifest = verify_run(d)
             require(manifest["validity"] == "valid", "Invalid runs cannot produce trusted metrics")
             c = load(d/"scenario.json")
@@ -238,7 +348,15 @@ def main(argv=None):
             write_jsonl(args.output, events)
         elif args.command == "compare":
             require(args.tolerance_tick >= 0, "Negative tolerance")
-            result = compare_events(read_jsonl(args.left), read_jsonl(args.right), args.tolerance_tick)
+            from .storage import parse_json
+            with Path(args.left).open(encoding="utf-8") as stream:
+                first = parse_json(stream.readline())
+            require(isinstance(first, dict), "Expected a canonical event object")
+            if first.get("schema_version") == "transaction-1":
+                from .transactions import compare, read_events
+                result = compare(read_events(args.left), read_events(args.right), args.tolerance_tick)
+            else:
+                result = compare_events(read_jsonl(args.left), read_jsonl(args.right), args.tolerance_tick)
             dump(args.output, result)
             print(result["status"])
             return 0 if result["status"] == "pass" else 1
@@ -247,11 +365,19 @@ def main(argv=None):
                     "Regression tolerances must be finite and nonnegative")
             def metric(path):
                 d = Path(path)
-                m = verify_run(d)
+                if manifest_schema(d) == "external-1":
+                    from .external import verify
+                    m = verify(d)
+                    c = load_json(d/"scenario.json")
+                else:
+                    m = verify_run(d)
+                    c = load(d/"scenario.json")
                 require(succeeded(m), "Regression requires successful runs and any requested RTL gate")
-                return load(d/"scenario.json"), load_json(d/"metrics.json")
+                return c, load_json(d/"metrics.json")
             ca, a = metric(args.baseline)
             cb, b = metric(args.candidate)
+            require(a.get("schema_version") == b.get("schema_version") and a.get("time_resolution_fs") == b.get("time_resolution_fs"),
+                    "Regression metric schema/time resolution differs")
             for key in ("adapter", "clock", "parameters", "reset", "workload", "measurement", "seed"):
                 require(ca.get(key) == cb.get(key), f"Regression experiment differs: {key}")
             results = []

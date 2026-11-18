@@ -1,65 +1,111 @@
 # TLM Performance Lab
 
-A CLI performance-analysis platform for RTL-oriented SystemC IP experiments,
-including hybrid models with PEQ-driven timing. Windows and SystemC **2.3.4** are
-the target environment. The first pilot is a small watchdog timer (WDT).
+Run your IP's source and testbench, measure transaction latency and throughput,
+and share an offline report. Start with a working example, then connect your own
+build and simulator commands through a small adapter manifest.
 
-**Status: executable WDT CLI platform on SystemC 2.3.4.** Implemented: strict
-scenario validation, configurable hybrid WDT, immutable evidence, canonical
-events, metrics, HTML/CSV reports, independent Verilog correlation, seeded
-workloads, sweeps, replay, regression gates, and trace-on/off profiling.
-The WDT is an original example, not a production WDT. Qualification is per run;
-real link-IP integration and graphical authoring remain future work.
+**Customer pilot · version 1.1.0 · Windows first.** The core and portable demo
+need only **Python 3.9+**. No pip packages, service, account or network connection
+are required. A pinned SystemC 2.3.4 source archive is included for the native
+watchdog example. Your IP still needs its own compiler/simulator and any licences.
+
+## Try it in one command
+
+Download/extract the repository or pilot ZIP, open a terminal in that folder:
 
 ```powershell
-python -m tlm_lab run configs/wdt_scenario.example.json --rtl
-python -m tlm_lab --help
+python tlm-lab.py demo --open
 ```
 
-See the [CLI guide](docs/CLI.md) for setup, commands, contracts, and limits.
+The Windows launcher also finds Python for you:
 
-For continued platform development, start with the
-[developer handoff](docs/README.md). It includes requirements, implementation
-audit, IP code-inspection worksheet, adapter/data/workload contracts, protocol
-profiles, release gates, acceptance tests and an implementation backlog.
-Future designs are explicitly distinguished from current WDT capabilities.
-
-## Review these first
-
-1. [Platform plan](docs/PLAN.md): scope, intended workflow, and success criteria.
-2. [Architecture](docs/ARCHITECTURE.md): integration without changing IP timing.
-3. [WDT specification](docs/WDT_SPEC.md): registers and exact timing decisions.
-4. [RTL correlation](docs/CORRELATION.md): how to establish useful agreement.
-5. [Delivery roadmap](docs/ROADMAP.md): milestones, dependencies, and exit gates.
-6. [Decisions and questions](docs/DECISIONS.md): confirmed inputs and assumptions.
-
-Supporting contracts: [timing and observation](docs/TIMING.md),
-[metrics](docs/METRICS.md), [Windows setup](docs/SETUP_WINDOWS.md),
-[validation status](docs/VALIDATION.md), and [references](docs/REFERENCES.md).
-
-## Folder layout
-
-```text
-docs/                 Reviewable plan and engineering contracts
-examples/wdt/         Small hybrid SystemC WDT and self-checking testbench
-configs/              Runnable WDT scenario, adapter contract and sweep examples
-tlm_lab/              CLI, runner, validation, metrics, and correlation
-platform/             Platform entry-point documentation
-adapters/             Integration contract for additional proprietary models
-rtl/                  Independent Verilog WDT reference
-tests/                Analytical, CLI, and RTL holdout tests
-tools/                Local review utilities
-.deps/                Ignored, workspace-local third-party dependencies
-build/                Ignored build and pilot test traces
-runs/                 Ignored immutable experiment artifacts and reports
-private/              Ignored external/proprietary integrations
+```powershell
+.\tlm-lab.cmd demo --open
 ```
 
-The pilot uses a blocking TLM register interface, an internal PEQ for transaction
-readiness, and a clocked watchdog. It demonstrates that timing contracts and
-observation points matter more than assigning an entire IP an LT or AT label.
+The demo produces a local `report.html`, metrics CSV/JSON, traces and source
+snapshots under `runs/`. It demonstrates two concurrent service lanes and
+out-of-order completion. Expected results: **4 completions, mean latency 20 ticks,
+peak 2 in flight, 288 completed payload bytes**. This is a synthetic learning
+example, not a prediction for a real protocol or IP.
 
-Build and test instructions are in [Windows setup](docs/SETUP_WINDOWS.md).
-The CLI validates JSON scenarios and launches `wdt_scenario` through its native
-workload adapter. The legacy `wdt_pilot` retains eight fixed CTest scenarios.
+## Bring your source and testbench
 
+```powershell
+python tlm-lab.py init my-ip --template cpp
+python tlm-lab.py doctor --adapter my-ip/adapter.json
+python tlm-lab.py run my-ip/scenario.json --adapter my-ip/adapter.json --open
+```
+
+The C++ starter needs CMake, Ninja and a C++14 compiler. Use `--template python`
+for a starter with no compiler requirement. Then replace the example source and
+testbench, list your source files, and edit `adapter.json` to use your existing
+build/run commands. Copyable Python and C++ trace observers are in `sdk/`.
+
+**IP-independent integration does require an adapter.** SystemC, RTL simulators,
+plain C++ models and other executables can use the same external build/run and
+trace contract. The tool does not infer arbitrary ports, workloads, protocol
+semantics or model accuracy from source files. Your testbench owns those details;
+the platform measures the boundaries you expose. The built-in WDT retains its
+separate, tested SystemC/RTL timing contract.
+
+Start with the **[customer guide](docs/CUSTOMER_GUIDE.md)**. For integration,
+see the **[external adapter reference](docs/EXTERNAL_ADAPTERS.md)**.
+
+## Native SystemC watchdog example
+
+With CMake, Ninja and a compatible C++ compiler on PATH:
+
+```powershell
+python tlm-lab.py doctor --wdt
+python tlm-lab.py setup-wdt
+python tlm-lab.py run configs/wdt_scenario.example.json --open
+```
+
+Setup verifies and builds the bundled SystemC source into this workspace;
+no download or administrator installation is performed. For independent WDT RTL
+comparison, install Icarus `iverilog`/`vvp` and add `--rtl` to the run command.
+See [Windows setup](docs/SETUP_WINDOWS.md) for other compiler profiles.
+
+## Explore and reproduce
+
+```powershell
+python tlm-lab.py --help
+python tlm-lab.py validate my-ip/scenario.json --adapter my-ip/adapter.json
+python tlm-lab.py replay runs/RUN
+python tlm-lab.py analyze runs/RUN --output runs/reanalysis.json
+python tlm-lab.py compare runs/LEFT/events.jsonl runs/RIGHT/events.jsonl --output runs/comparison.json
+```
+
+External adapters support parameter sweeps, offline analysis, retained-source
+replay and latency regression. Reports distinguish successful execution from
+accuracy qualification. Unknown payload sizes produce unavailable byte throughput;
+unfinished work is counted explicitly. Internal queue/credit/stall metrics need
+additional IP-specific observations.
+
+## Share with the pilot group
+
+```powershell
+python tools/package_pilot.py
+```
+
+Share `dist/tlm-performance-lab-1.1.0.zip`. It includes the launcher, guides,
+templates, SDK, tests, SystemC source and its licence/notices. It excludes your
+`private/`, `runs/`, `.deps/`, build directories and Git metadata. The ZIP contains
+a file-hash manifest. Customers extract it and run the demo; no package installation
+is needed. Source snapshots inside individual experiment runs may contain customer
+IP, so select experiment evidence deliberately when sharing it.
+
+## Development and validation
+
+```powershell
+python -m unittest discover -s tests -v
+ctest --test-dir build-pilot -C Release --output-on-failure
+```
+
+The Python-only tests run without native tools; unavailable native integration
+tests are explicitly skipped. See [validation evidence](docs/VALIDATION.md),
+[CLI reference](docs/CLI.md), and the [developer handoff](docs/README.md).
+The [roadmap](docs/ROADMAP.md) covers future protocol-specific qualification,
+resource instrumentation and multi-IP composition; these are not automatic
+capabilities of the generic adapter.

@@ -1,5 +1,14 @@
 # CLI platform
 
+Customer pilot entry points in CLI 1.1.0: `demo`, `init`, `doctor`, and offline
+`setup-wdt`. See the [customer guide](CUSTOMER_GUIDE.md). `run`, `validate` and
+`sweep` accept `--adapter PATH` for source/testbench projects. External analysis,
+replay, boundary comparison and latency regression use the
+[external-1 contract](EXTERNAL_ADAPTERS.md). The remaining reference below describes
+the original WDT v1 path unless stated otherwise; its timing rules do not apply
+to arbitrary external IPs. Commands also work through `python tlm-lab.py` without
+installing a package. `--open` on run/demo opens the local report.
+
 The version-1 CLI implements WDT experiments, analysis, correlation, sweeps,
 replay, and regression. Run from the repository root with Python 3.9+ (standard
 library only). Build the native driver with SystemC 2.3.4 and a matching C++14
